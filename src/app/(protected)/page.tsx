@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -64,6 +65,12 @@ export default function Home() {
               </span>{" "}
               / {gesamt}
             </p>
+            <Link
+              href="/import"
+              className="flex min-h-10 items-center rounded-md border border-zinc-700 px-3 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              Import
+            </Link>
             <button
               type="button"
               onClick={() => signOut(auth)}
