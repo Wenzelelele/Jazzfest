@@ -33,7 +33,13 @@ function CheckInButton({
   );
 }
 
-export function GastZeile({ gast }: { gast: GastMitId }) {
+export function GastZeile({
+  gast,
+  onBearbeiten,
+}: {
+  gast: GastMitId;
+  onBearbeiten: (gast: GastMitId) => void;
+}) {
   const [offen, setOffen] = useState(false);
   const begleitungKeys = sortiereBegleitungKeys(gast.begleitung);
   const hatBegleitung = begleitungKeys.length > 0;
@@ -64,6 +70,15 @@ export function GastZeile({ gast }: { gast: GastMitId }) {
               {eingecheckt}/{gesamt}
             </span>
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onBearbeiten(gast)}
+          aria-label={`${gast.name} bearbeiten`}
+          className="min-h-12 min-w-12 shrink-0 rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          ✎
         </button>
 
         <CheckInButton

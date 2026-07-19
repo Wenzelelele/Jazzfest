@@ -10,6 +10,8 @@ import {
   istVollstaendigDa,
 } from "@/lib/gaeste";
 import { GastZeile } from "@/components/GastZeile";
+import { GastFormular } from "@/components/GastFormular";
+import type { GastMitId } from "@/lib/gaeste";
 
 type FilterWert = "alle" | "nicht-da" | "schon-da";
 
@@ -19,10 +21,15 @@ const FILTER_OPTIONEN: { wert: FilterWert; label: string }[] = [
   { wert: "schon-da", label: "Schon da" },
 ];
 
+type FormularStatus =
+  | { offen: false }
+  | { offen: true; gast?: GastMitId };
+
 export default function Home() {
   const gaeste = useGaeste();
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<FilterWert>("alle");
+  const [formular, setFormular] = useState<FormularStatus>({ offen: false });
 
   const sucheLower = suche.trim().toLowerCase();
 
@@ -102,10 +109,30 @@ export default function Home() {
           </p>
         ) : (
           sichtbareGaeste.map((gast) => (
-            <GastZeile key={gast.id} gast={gast} />
+            <GastZeile
+              key={gast.id}
+              gast={gast}
+              onBearbeiten={(gast) => setFormular({ offen: true, gast })}
+            />
           ))
         )}
       </main>
+
+      <button
+        type="button"
+        onClick={() => setFormular({ offen: true, gast: undefined })}
+        aria-label="Gast hinzufügen"
+        className="fixed right-5 bottom-5 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-50 text-3xl text-zinc-950 shadow-lg hover:bg-zinc-200"
+      >
+        +
+      </button>
+
+      {formular.offen && (
+        <GastFormular
+          gast={formular.gast}
+          onClose={() => setFormular({ offen: false })}
+        />
+      )}
     </div>
   );
 }

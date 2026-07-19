@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  deleteField,
   doc,
   serverTimestamp,
   updateDoc,
@@ -52,22 +54,34 @@ export function nameLowerVon(name: string): string {
   return name.trim().toLowerCase();
 }
 
-export function leereBegleitung(anzahl: number): Begleitung {
+export function baueBegleitung(namen: string[]): Begleitung {
   const begleitung: Begleitung = {};
-  for (let i = 1; i <= anzahl; i++) {
-    begleitung[String(i)] = { checkedIn: false, checkedInAt: null, name: "" };
-  }
+  namen.forEach((name, index) => {
+    begleitung[String(index + 1)] = {
+      checkedIn: false,
+      checkedInAt: null,
+      name: name.trim(),
+    };
+  });
   return begleitung;
+}
+
+export function leereBegleitung(anzahl: number): Begleitung {
+  return baueBegleitung(Array<string>(anzahl).fill(""));
 }
 
 export interface NeuerGastInput {
   name: string;
   notiz?: string;
   anzahlBegleitung?: number;
+  begleitungNamen?: string[];
   quelle?: Quelle;
 }
 
 export async function erstelleGast(input: NeuerGastInput) {
+  const namen =
+    input.begleitungNamen ??
+    Array<string>(input.anzahlBegleitung ?? 0).fill("");
   return addDoc(gaesteCollectionRef(), {
     name: input.name,
     nameLower: nameLowerVon(input.name),
@@ -75,9 +89,54 @@ export async function erstelleGast(input: NeuerGastInput) {
     notiz: input.notiz ?? "",
     checkedIn: false,
     checkedInAt: null,
-    begleitung: leereBegleitung(input.anzahlBegleitung ?? 0),
+    begleitung: baueBegleitung(namen),
     erstelltAm: serverTimestamp(),
   });
+}
+
+export interface GastBearbeitenInput {
+  name: string;
+  notiz: string;
+  begleitungNamen: string[];
+}
+
+// Begleitung-Keys bleiben immer als "1".."n" durchgehend - beim Bearbeiten
+// werden neue Keys ergänzt oder überzählige entfernt, bestehende Keys
+// behalten ihren checkedIn-Status und bekommen nur den Namen aktualisiert.
+export async function aktualisiereGast(
+  gastId: string,
+  bestehenderGast: Gast,
+  input: GastBearbeitenInput,
+) {
+  const alteAnzahl = Object.keys(bestehenderGast.begleitung).length;
+  const neueAnzahl = input.begleitungNamen.length;
+  const updates: Record<string, unknown> = {
+    name: input.name,
+    nameLower: nameLowerVon(input.name),
+    notiz: input.notiz,
+  };
+
+  const maxSchluessel = Math.max(alteAnzahl, neueAnzahl);
+  for (let i = 1; i <= maxSchluessel; i++) {
+    const key = String(i);
+    if (i > neueAnzahl) {
+      updates[`begleitung.${key}`] = deleteField();
+    } else if (i > alteAnzahl) {
+      updates[`begleitung.${key}`] = {
+        checkedIn: false,
+        checkedInAt: null,
+        name: input.begleitungNamen[i - 1].trim(),
+      };
+    } else {
+      updates[`begleitung.${key}.name`] = input.begleitungNamen[i - 1].trim();
+    }
+  }
+
+  await updateDoc(gastDocRef(gastId), updates);
+}
+
+export async function loescheGast(gastId: string) {
+  await deleteDoc(gastDocRef(gastId));
 }
 
 export async function checkInHauptgast(gastId: string, checkedIn: boolean) {
