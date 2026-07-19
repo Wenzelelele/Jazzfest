@@ -101,3 +101,22 @@ export async function checkInBegleitung(
       : null,
   });
 }
+
+export function gesamtPersonen(gast: Gast): number {
+  return 1 + Object.keys(gast.begleitung).length;
+}
+
+export function eingecheckePersonen(gast: Gast): number {
+  const begleitungEingecheckt = Object.values(gast.begleitung).filter(
+    (begleitperson) => begleitperson.checkedIn,
+  ).length;
+  return (gast.checkedIn ? 1 : 0) + begleitungEingecheckt;
+}
+
+export function istVollstaendigDa(gast: Gast): boolean {
+  return eingecheckePersonen(gast) === gesamtPersonen(gast);
+}
+
+export function sortiereBegleitungKeys(begleitung: Begleitung): string[] {
+  return Object.keys(begleitung).sort((a, b) => Number(a) - Number(b));
+}
