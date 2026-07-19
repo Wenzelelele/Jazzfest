@@ -60,17 +60,17 @@ export default function LoginPage() {
     <div className="flex flex-1 items-center justify-center p-6">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6"
+        className="w-full max-w-sm space-y-5 rounded-lg border border-stone-200 bg-white p-7 shadow-sm"
       >
         <div className="space-y-1 text-center">
-          <h1 className="text-xl font-semibold text-zinc-50">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900">
             Jazzfest Gästeliste
           </h1>
-          <p className="text-sm text-zinc-400">Anmeldung am Einlass</p>
+          <p className="text-sm text-stone-500">Anmeldung am Einlass</p>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm text-zinc-300">
+          <label htmlFor="email" className="text-sm text-stone-600">
             E-Mail
           </label>
           <input
@@ -80,12 +80,12 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-zinc-50 outline-none focus:border-zinc-400"
+            className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
           />
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm text-zinc-300">
+          <label htmlFor="password" className="text-sm text-stone-600">
             Passwort
           </label>
           <input
@@ -95,12 +95,12 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-zinc-50 outline-none focus:border-zinc-400"
+            className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
           />
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-red-700">
             {error}
           </p>
         )}
@@ -108,7 +108,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="min-h-12 w-full rounded-md bg-zinc-50 px-5 font-medium text-zinc-950 hover:bg-zinc-200 disabled:opacity-60"
+          className="min-h-12 w-full rounded-md bg-stone-900 px-5 font-medium text-stone-50 hover:bg-stone-800 disabled:opacity-60"
         >
           {submitting ? "Anmelden…" : "Anmelden"}
         </button>

@@ -56,29 +56,31 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-10 space-y-3 border-b border-zinc-800 bg-zinc-950 p-4">
+      <header className="sticky top-0 z-10 space-y-3 border-b border-stone-200 bg-white/95 p-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-zinc-50">Gästeliste</h1>
+            <h1 className="font-display text-lg font-semibold tracking-tight text-stone-900">
+              Gästeliste
+            </h1>
             <VerbindungsIndikator />
           </div>
           <div className="flex items-center gap-3">
-            <p className="text-sm text-zinc-400">
-              <span className="font-semibold text-zinc-50">
+            <p className="text-sm text-stone-500">
+              <span className="font-semibold text-stone-900">
                 {eingecheckt}
               </span>{" "}
               / {gesamt}
             </p>
             <Link
               href="/import"
-              className="flex min-h-10 items-center rounded-md border border-zinc-700 px-3 text-xs text-zinc-300 hover:bg-zinc-800"
+              className="flex min-h-12 items-center rounded-md border border-stone-300 px-3 text-xs text-stone-600 hover:bg-stone-100"
             >
               Import
             </Link>
             <button
               type="button"
               onClick={() => signOut(auth)}
-              className="min-h-10 rounded-md border border-zinc-700 px-3 text-xs text-zinc-300 hover:bg-zinc-800"
+              className="min-h-12 rounded-md border border-stone-300 px-3 text-xs text-stone-600 hover:bg-stone-100"
             >
               Abmelden
             </button>
@@ -91,7 +93,7 @@ export default function Home() {
           placeholder="Name suchen…"
           value={suche}
           onChange={(event) => setSuche(event.target.value)}
-          className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 text-zinc-50 outline-none focus:border-zinc-400"
+          className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
         />
 
         <div className="flex gap-2">
@@ -101,10 +103,10 @@ export default function Home() {
               type="button"
               onClick={() => setFilter(option.wert)}
               aria-pressed={filter === option.wert}
-              className={`min-h-10 flex-1 rounded-md px-3 text-sm ${
+              className={`min-h-12 flex-1 rounded-md px-3 text-sm ${
                 filter === option.wert
-                  ? "bg-zinc-50 text-zinc-950"
-                  : "border border-zinc-700 text-zinc-300"
+                  ? "bg-stone-900 text-stone-50"
+                  : "border border-stone-300 text-stone-600"
               }`}
             >
               {option.label}
@@ -113,9 +115,9 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 divide-y divide-zinc-800">
+      <main className="flex-1 divide-y divide-stone-200">
         {sichtbareGaeste.length === 0 ? (
-          <p className="p-6 text-center text-sm text-zinc-500">
+          <p className="p-6 text-center text-sm text-stone-500">
             Keine Gäste gefunden.
           </p>
         ) : (
@@ -133,7 +135,7 @@ export default function Home() {
         type="button"
         onClick={() => setFormular({ offen: true, gast: undefined })}
         aria-label="Gast hinzufügen"
-        className="fixed right-5 bottom-5 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-50 text-3xl text-zinc-950 shadow-lg hover:bg-zinc-200"
+        className="fixed right-5 bottom-5 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-stone-900 text-3xl text-stone-50 shadow-lg hover:bg-stone-800"
       >
         +
       </button>

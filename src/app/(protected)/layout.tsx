@@ -21,7 +21,7 @@ export default function ProtectedLayout({
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-zinc-400">Lädt…</p>
+        <p className="text-sm text-stone-500">Lädt…</p>
       </div>
     );
   }

@@ -13,7 +13,7 @@ export function VerbindungsIndikator() {
   const anzeige = STATUS_ANZEIGE[status];
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+    <span className="flex items-center gap-1.5 text-xs text-stone-500">
       <span
         className={`h-2 w-2 shrink-0 rounded-full ${anzeige.punkt}`}
         aria-hidden="true"

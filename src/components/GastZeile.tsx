@@ -10,6 +10,10 @@ import {
   type GastMitId,
 } from "@/lib/gaeste";
 
+// Der Status (da / nicht da) muss auch ohne genaues Lesen erkennbar sein:
+// nicht eingecheckt ist eine schlichte Outline (leere Form), eingecheckt ist
+// vollflächig gefüllt plus Häkchen - Form und Kontrast tragen die Aussage,
+// die Farbe ist nur eine zusätzliche Verstärkung, keine Voraussetzung.
 function CheckInButton({
   checkedIn,
   onToggle,
@@ -22,10 +26,10 @@ function CheckInButton({
       type="button"
       onClick={onToggle}
       aria-pressed={checkedIn}
-      className={`min-h-12 min-w-[6.5rem] shrink-0 rounded-md px-4 text-sm font-medium ${
+      className={`min-h-14 min-w-32 shrink-0 rounded-md border-2 px-4 text-base font-semibold ${
         checkedIn
-          ? "bg-emerald-900 text-emerald-100"
-          : "bg-zinc-800 text-zinc-200"
+          ? "border-amber-800 bg-amber-800 text-amber-50"
+          : "border-stone-400 bg-transparent text-stone-700"
       }`}
     >
       {checkedIn ? "Da ✓" : "Check-in"}
@@ -55,18 +59,18 @@ export function GastZeile({
           className="flex min-h-12 flex-1 items-center gap-2 text-left"
         >
           {hatBegleitung && (
-            <span className="text-zinc-500">{offen ? "▾" : "▸"}</span>
+            <span className="text-stone-400">{offen ? "▾" : "▸"}</span>
           )}
           <span className="flex-1">
-            <span className="block text-zinc-50">{gast.name}</span>
+            <span className="block text-stone-900">{gast.name}</span>
             {gast.notiz && (
-              <span className="block text-xs text-zinc-500">
+              <span className="block text-xs text-stone-500">
                 {gast.notiz}
               </span>
             )}
           </span>
           {hatBegleitung && (
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-stone-500">
               {eingecheckt}/{gesamt}
             </span>
           )}
@@ -76,7 +80,7 @@ export function GastZeile({
           type="button"
           onClick={() => onBearbeiten(gast)}
           aria-label={`${gast.name} bearbeiten`}
-          className="min-h-12 min-w-12 shrink-0 rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          className="min-h-12 min-w-12 shrink-0 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
         >
           ✎
         </button>
@@ -90,7 +94,7 @@ export function GastZeile({
       </div>
 
       {hatBegleitung && offen && (
-        <div className="space-y-2 bg-zinc-900/60 px-4 pb-4 pl-9">
+        <div className="space-y-2 bg-stone-100 px-4 pb-4 pl-9">
           {begleitungKeys.map((key) => {
             const begleitperson = gast.begleitung[key];
             return (
@@ -98,7 +102,7 @@ export function GastZeile({
                 key={key}
                 className="flex items-center justify-between gap-3"
               >
-                <span className="text-sm text-zinc-300">
+                <span className="text-sm text-stone-600">
                   {begleitperson.name || `+${key}`}
                 </span>
                 <CheckInButton

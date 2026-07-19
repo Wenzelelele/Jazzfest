@@ -86,16 +86,19 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
       aria-labelledby="gast-formular-titel"
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
     >
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-lg border border-zinc-800 bg-zinc-900 p-5 sm:rounded-lg">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-lg border border-stone-200 bg-white p-5 shadow-lg sm:rounded-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 id="gast-formular-titel" className="text-lg font-semibold text-zinc-50">
+          <h2
+            id="gast-formular-titel"
+            className="font-display text-lg font-semibold text-stone-900"
+          >
             {bearbeitenModus ? "Gast bearbeiten" : "Gast hinzufügen"}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Schließen"
-            className="min-h-10 min-w-10 rounded-md text-xl text-zinc-400 hover:bg-zinc-800"
+            className="min-h-12 min-w-12 rounded-md text-xl text-stone-400 hover:bg-stone-100"
           >
             ×
           </button>
@@ -103,7 +106,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label htmlFor="gast-name" className="text-sm text-zinc-300">
+            <label htmlFor="gast-name" className="text-sm text-stone-600">
               Name
             </label>
             <input
@@ -113,12 +116,12 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-zinc-50 outline-none focus:border-zinc-400"
+              className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
             />
           </div>
 
           <div className="space-y-2">
-            <span className="text-sm text-zinc-300">Begleitpersonen</span>
+            <span className="text-sm text-stone-600">Begleitpersonen</span>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -126,11 +129,11 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
                   anzahlAendern(Math.max(0, begleitungNamen.length - 1))
                 }
                 disabled={begleitungNamen.length === 0}
-                className="min-h-12 min-w-12 rounded-md border border-zinc-700 text-xl text-zinc-200 disabled:opacity-40"
+                className="min-h-12 min-w-12 rounded-md border border-stone-300 text-xl text-stone-700 disabled:opacity-40"
               >
                 −
               </button>
-              <span className="w-6 text-center text-lg text-zinc-50">
+              <span className="w-6 text-center text-lg text-stone-900">
                 {begleitungNamen.length}
               </span>
               <button
@@ -141,7 +144,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
                   )
                 }
                 disabled={begleitungNamen.length >= MAX_BEGLEITUNG}
-                className="min-h-12 min-w-12 rounded-md border border-zinc-700 text-xl text-zinc-200 disabled:opacity-40"
+                className="min-h-12 min-w-12 rounded-md border border-stone-300 text-xl text-stone-700 disabled:opacity-40"
               >
                 +
               </button>
@@ -158,7 +161,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
                     onChange={(event) =>
                       begleitungNameAendern(index, event.target.value)
                     }
-                    className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-50 outline-none focus:border-zinc-400"
+                    className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-sm text-stone-900 outline-none focus:border-stone-500"
                   />
                 ))}
               </div>
@@ -166,7 +169,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="gast-notiz" className="text-sm text-zinc-300">
+            <label htmlFor="gast-notiz" className="text-sm text-stone-600">
               Notiz (optional)
             </label>
             <input
@@ -174,29 +177,29 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
               type="text"
               value={notiz}
               onChange={(event) => setNotiz(event.target.value)}
-              className="min-h-12 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-zinc-50 outline-none focus:border-zinc-400"
+              className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
             />
           </div>
 
           {fehler && (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-700">
               {fehler}
             </p>
           )}
 
           <button
             type="submit"
-            className="min-h-12 w-full rounded-md bg-zinc-50 px-5 font-medium text-zinc-950 hover:bg-zinc-200"
+            className="min-h-12 w-full rounded-md bg-stone-900 px-5 font-medium text-stone-50 hover:bg-stone-800"
           >
             Speichern
           </button>
         </form>
 
         {bearbeitenModus && (
-          <div className="mt-4 border-t border-zinc-800 pt-4">
+          <div className="mt-4 border-t border-stone-200 pt-4">
             {loeschenBestaetigen ? (
               <div className="space-y-2">
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-stone-600">
                   {gast.name} wirklich löschen? Das kann nicht rückgängig
                   gemacht werden.
                 </p>
@@ -204,14 +207,14 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
                   <button
                     type="button"
                     onClick={() => setLoeschenBestaetigen(false)}
-                    className="min-h-12 flex-1 rounded-md border border-zinc-700 text-zinc-200"
+                    className="min-h-12 flex-1 rounded-md border border-stone-300 text-stone-700"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="button"
                     onClick={handleLoeschen}
-                    className="min-h-12 flex-1 rounded-md bg-red-900 text-red-100"
+                    className="min-h-12 flex-1 rounded-md bg-red-700 text-white"
                   >
                     Endgültig löschen
                   </button>
@@ -221,7 +224,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
               <button
                 type="button"
                 onClick={() => setLoeschenBestaetigen(true)}
-                className="min-h-12 w-full rounded-md border border-red-900 text-sm text-red-400"
+                className="min-h-12 w-full rounded-md border border-red-300 text-sm text-red-700"
               >
                 Gast löschen
               </button>
