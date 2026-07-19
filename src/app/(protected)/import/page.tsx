@@ -34,7 +34,6 @@ export default function ImportSeite() {
   const [status, setStatus] = useState<Status>({ schritt: "upload" });
   const [zeilen, setZeilen] = useState<ImportZeile[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
-  const [importiertLaeuft, setImportiertLaeuft] = useState(false);
   const dateiInputRef = useRef<HTMLInputElement>(null);
 
   async function handleDateiAuswahl(datei: File) {
@@ -65,18 +64,15 @@ export default function ImportSeite() {
     setZeilen((bisherige) => bisherige.map((zeile) => ({ ...zeile, ausgewaehlt })));
   }
 
-  async function handleImportBestaetigen() {
-    setImportiertLaeuft(true);
+  // Bewusst nicht auf den Batch-Commit warten - siehe Kommentar in
+  // GastFormular.tsx: Firestores Schreib-Promise löst erst bei
+  // Server-Bestätigung auf, offline würde das den Erfolgs-Screen
+  // unbegrenzt blockieren, obwohl der Import lokal längst vorgemerkt ist.
+  function handleImportBestaetigen() {
     setFehler(null);
-    try {
-      const anzahl = await importiereAlsBatch(zeilen);
-      setStatus({ schritt: "importiert", anzahl });
-    } catch (err) {
-      console.error(err);
-      setFehler("Import fehlgeschlagen. Bitte erneut versuchen.");
-    } finally {
-      setImportiertLaeuft(false);
-    }
+    const anzahl = anzahlAusgewaehlt;
+    importiereAlsBatch(zeilen).catch(console.error);
+    setStatus({ schritt: "importiert", anzahl });
   }
 
   function zurueckZumUpload() {
@@ -219,12 +215,10 @@ export default function ImportSeite() {
               <button
                 type="button"
                 onClick={handleImportBestaetigen}
-                disabled={importiertLaeuft || anzahlAusgewaehlt === 0}
+                disabled={anzahlAusgewaehlt === 0}
                 className="min-h-12 flex-1 rounded-md bg-zinc-50 font-medium text-zinc-950 disabled:opacity-60"
               >
-                {importiertLaeuft
-                  ? "Importiert…"
-                  : `${anzahlAusgewaehlt} Gäste importieren`}
+                {`${anzahlAusgewaehlt} Gäste importieren`}
               </button>
             </div>
           </div>

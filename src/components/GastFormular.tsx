@@ -27,9 +27,7 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
     );
   });
   const [fehler, setFehler] = useState<string | null>(null);
-  const [speichert, setSpeichert] = useState(false);
   const [loeschenBestaetigen, setLoeschenBestaetigen] = useState(false);
-  const [loescht, setLoescht] = useState(false);
 
   function anzahlAendern(neueAnzahl: number) {
     setBegleitungNamen((bisherige) => {
@@ -45,7 +43,12 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
     );
   }
 
-  async function handleSubmit(event: FormEvent) {
+  // Bewusst nicht auf den Schreibvorgang warten (kein await): Firestores
+  // Schreib-Promises lösen erst bei Server-Bestätigung auf, nicht beim
+  // lokalen Cache-Schreiben. Offline würde ein await hier das Formular
+  // auf unbestimmte Zeit an "Speichert…" hängen lassen, obwohl der Gast
+  // dank persistentLocalCache längst optimistisch in der Liste erscheint.
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const nameGetrimmt = name.trim();
     if (!nameGetrimmt) {
@@ -53,43 +56,27 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
       return;
     }
     setFehler(null);
-    setSpeichert(true);
-    try {
-      if (bearbeitenModus) {
-        await aktualisiereGast(gast.id, gast, {
-          name: nameGetrimmt,
-          notiz: notiz.trim(),
-          begleitungNamen,
-        });
-      } else {
-        await erstelleGast({
-          name: nameGetrimmt,
-          notiz: notiz.trim(),
-          begleitungNamen,
-          quelle: "manuell",
-        });
-      }
-      onClose();
-    } catch (err) {
-      console.error(err);
-      setFehler("Speichern fehlgeschlagen. Bitte erneut versuchen.");
-    } finally {
-      setSpeichert(false);
+    if (bearbeitenModus) {
+      aktualisiereGast(gast.id, gast, {
+        name: nameGetrimmt,
+        notiz: notiz.trim(),
+        begleitungNamen,
+      }).catch(console.error);
+    } else {
+      erstelleGast({
+        name: nameGetrimmt,
+        notiz: notiz.trim(),
+        begleitungNamen,
+        quelle: "manuell",
+      }).catch(console.error);
     }
+    onClose();
   }
 
-  async function handleLoeschen() {
+  function handleLoeschen() {
     if (!gast) return;
-    setLoescht(true);
-    try {
-      await loescheGast(gast.id);
-      onClose();
-    } catch (err) {
-      console.error(err);
-      setFehler("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-      setLoescht(false);
-      setLoeschenBestaetigen(false);
-    }
+    loescheGast(gast.id).catch(console.error);
+    onClose();
   }
 
   return (
@@ -199,10 +186,9 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
 
           <button
             type="submit"
-            disabled={speichert}
-            className="min-h-12 w-full rounded-md bg-zinc-50 px-5 font-medium text-zinc-950 hover:bg-zinc-200 disabled:opacity-60"
+            className="min-h-12 w-full rounded-md bg-zinc-50 px-5 font-medium text-zinc-950 hover:bg-zinc-200"
           >
-            {speichert ? "Speichern…" : "Speichern"}
+            Speichern
           </button>
         </form>
 
@@ -225,10 +211,9 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
                   <button
                     type="button"
                     onClick={handleLoeschen}
-                    disabled={loescht}
-                    className="min-h-12 flex-1 rounded-md bg-red-900 text-red-100 disabled:opacity-60"
+                    className="min-h-12 flex-1 rounded-md bg-red-900 text-red-100"
                   >
-                    {loescht ? "Löscht…" : "Endgültig löschen"}
+                    Endgültig löschen
                   </button>
                 </div>
               </div>

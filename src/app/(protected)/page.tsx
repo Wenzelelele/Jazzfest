@@ -12,6 +12,7 @@ import {
 } from "@/lib/gaeste";
 import { GastZeile } from "@/components/GastZeile";
 import { GastFormular } from "@/components/GastFormular";
+import { VerbindungsIndikator } from "@/components/VerbindungsIndikator";
 import type { GastMitId } from "@/lib/gaeste";
 
 type FilterWert = "alle" | "nicht-da" | "schon-da";
@@ -57,7 +58,10 @@ export default function Home() {
     <div className="flex flex-1 flex-col">
       <header className="sticky top-0 z-10 space-y-3 border-b border-zinc-800 bg-zinc-950 p-4">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold text-zinc-50">Gästeliste</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-zinc-50">Gästeliste</h1>
+            <VerbindungsIndikator />
+          </div>
           <div className="flex items-center gap-3">
             <p className="text-sm text-zinc-400">
               <span className="font-semibold text-zinc-50">
