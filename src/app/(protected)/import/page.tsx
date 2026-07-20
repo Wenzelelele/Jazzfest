@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useGaeste } from "@/hooks/useGaeste";
 import { parseCsv } from "@/lib/csvImport";
+import { alleGaesteLoeschen } from "@/lib/gaeste";
 import {
   importiereAlsBatch,
   markiereDubletten,
@@ -36,6 +37,25 @@ export default function ImportSeite() {
   const [zeilen, setZeilen] = useState<ImportZeile[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
   const dateiInputRef = useRef<HTMLInputElement>(null);
+  const [loeschenBestaetigen, setLoeschenBestaetigen] = useState(false);
+  const [loescheLaeuft, setLoescheLaeuft] = useState(false);
+
+  // Anders als die übrigen Schreibaktionen in der App bewusst MIT await:
+  // das ist eine seltene, irreversible Admin-Aktion nach dem Event (nicht
+  // Teil des Offline-Check-in-Flows am Einlass), da soll die Bestätigung
+  // erst erscheinen, wenn wirklich alles gelöscht ist.
+  async function handleAlleLoeschen() {
+    setLoescheLaeuft(true);
+    try {
+      await alleGaesteLoeschen();
+      setLoeschenBestaetigen(false);
+    } catch (err) {
+      console.error(err);
+      setFehler("Löschen fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setLoescheLaeuft(false);
+    }
+  }
 
   async function handleDateiAuswahl(datei: File) {
     setFehler(null);
@@ -123,6 +143,46 @@ export default function ImportSeite() {
                 {fehler}
               </p>
             )}
+
+            <div className="rounded-md border border-red-200 p-4 text-left">
+              <p className="mb-3 text-sm font-medium text-red-900">
+                Gefahrenzone - erst nach dem Event
+              </p>
+              {loeschenBestaetigen ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-stone-600">
+                    Wirklich <strong>alle {gaeste.length} Einträge</strong>{" "}
+                    (Gästeliste und JIM Mitglieder) endgültig löschen? Das
+                    kann nicht rückgängig gemacht werden.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setLoeschenBestaetigen(false)}
+                      className="min-h-12 flex-1 rounded-md border border-stone-300 text-stone-700"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAlleLoeschen}
+                      disabled={loescheLaeuft}
+                      className="min-h-12 flex-1 rounded-md bg-red-700 text-white disabled:opacity-60"
+                    >
+                      {loescheLaeuft ? "Löscht…" : "Endgültig alle löschen"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setLoeschenBestaetigen(true)}
+                  className="min-h-12 w-full rounded-md border border-red-300 text-sm text-red-700"
+                >
+                  Alle Gäste löschen (Reset nach dem Event)
+                </button>
+              )}
+            </div>
           </div>
         )}
 

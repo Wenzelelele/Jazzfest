@@ -4,8 +4,10 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDocs,
   serverTimestamp,
   updateDoc,
+  writeBatch,
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -137,6 +139,26 @@ export async function aktualisiereGast(
 
 export async function loescheGast(gastId: string) {
   await deleteDoc(gastDocRef(gastId));
+}
+
+const LOESCH_BATCH_GROESSE = 450; // Firestore erlaubt maximal 500 Schreibvorgänge pro Batch
+
+// Löscht die komplette gaeste-Collection (Gäste UND importierte Mitglieder) -
+// gedacht für den Reset nach dem Event, vor dem nächsten Jahr.
+export async function alleGaesteLoeschen(): Promise<number> {
+  const snapshot = await getDocs(gaesteCollectionRef());
+  const alleRefs = snapshot.docs.map((docSnapshot) => docSnapshot.ref);
+
+  for (let start = 0; start < alleRefs.length; start += LOESCH_BATCH_GROESSE) {
+    const stapel = alleRefs.slice(start, start + LOESCH_BATCH_GROESSE);
+    const batch = writeBatch(db);
+    for (const ref of stapel) {
+      batch.delete(ref);
+    }
+    await batch.commit();
+  }
+
+  return alleRefs.length;
 }
 
 export async function checkInHauptgast(gastId: string, checkedIn: boolean) {
