@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useGaeste } from "@/hooks/useGaeste";
+import { parseCsv } from "@/lib/csvImport";
 import {
   importiereAlsBatch,
   markiereDubletten,
-  parsePdf,
   type ImportMarkierung,
   type ImportZeile,
-} from "@/lib/pdfImport";
+} from "@/lib/gaesteImport";
+import { parsePdf } from "@/lib/pdfImport";
 
 const MARKIERUNG_LABEL: Record<ImportMarkierung, string> = {
   seitenzahl: "Seitenzahl",
@@ -39,14 +40,17 @@ export default function ImportSeite() {
   async function handleDateiAuswahl(datei: File) {
     setFehler(null);
     setStatus({ schritt: "lädt" });
+    const istCsv = datei.name.toLowerCase().endsWith(".csv");
     try {
-      const geparst = await parsePdf(datei);
+      const geparst = istCsv ? await parseCsv(datei) : await parsePdf(datei);
       setZeilen(markiereDubletten(geparst, bestehendeNamenLower));
       setStatus({ schritt: "vorschau" });
     } catch (err) {
       console.error(err);
       setFehler(
-        "PDF konnte nicht gelesen werden. Ist es wirklich ein PDF mit auswählbarem Text?",
+        istCsv
+          ? "CSV konnte nicht gelesen werden."
+          : "PDF konnte nicht gelesen werden. Ist es wirklich ein PDF mit auswählbarem Text?",
       );
       setStatus({ schritt: "upload" });
     }
@@ -101,13 +105,13 @@ export default function ImportSeite() {
         {status.schritt === "upload" && (
           <div className="mx-auto max-w-md space-y-4 pt-8 text-center">
             <p className="text-sm text-stone-500">
-              PDF mit der Mitgliederliste auswählen. Der Text muss im PDF
-              auswählbar sein (kein Scan).
+              PDF oder CSV mit der Mitgliederliste auswählen. Bei PDF muss der
+              Text auswählbar sein (kein Scan).
             </p>
             <input
               ref={dateiInputRef}
               type="file"
-              accept="application/pdf,.pdf"
+              accept="application/pdf,.pdf,.csv,text/csv"
               onChange={(event) => {
                 const datei = event.target.files?.[0];
                 if (datei) handleDateiAuswahl(datei);
@@ -124,7 +128,7 @@ export default function ImportSeite() {
 
         {status.schritt === "lädt" && (
           <p className="pt-8 text-center text-sm text-stone-500">
-            PDF wird gelesen…
+            Datei wird gelesen…
           </p>
         )}
 
@@ -237,7 +241,7 @@ export default function ImportSeite() {
                 onClick={zurueckZumUpload}
                 className="min-h-12 flex-1 rounded-md border border-stone-300 text-stone-700"
               >
-                Weitere PDF importieren
+                Weitere Datei importieren
               </button>
               <Link
                 href="/"

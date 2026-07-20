@@ -7,6 +7,7 @@ import { auth } from "@/lib/firebase";
 import { useGaeste } from "@/hooks/useGaeste";
 import {
   eingecheckePersonen,
+  gastPasstZurSuche,
   gesamtPersonen,
   istVollstaendigDa,
 } from "@/lib/gaeste";
@@ -47,7 +48,7 @@ export default function Home() {
 
   const sichtbareGaeste = useMemo(() => {
     return gaeste.filter((gast) => {
-      if (sucheLower && !gast.nameLower.includes(sucheLower)) return false;
+      if (!gastPasstZurSuche(gast, sucheLower)) return false;
       if (filter === "schon-da" && !istVollstaendigDa(gast)) return false;
       if (filter === "nicht-da" && istVollstaendigDa(gast)) return false;
       return true;
@@ -125,6 +126,7 @@ export default function Home() {
             <GastZeile
               key={gast.id}
               gast={gast}
+              sucheLower={sucheLower}
               onBearbeiten={(gast) => setFormular({ offen: true, gast })}
             />
           ))

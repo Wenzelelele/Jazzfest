@@ -179,3 +179,14 @@ export function istVollstaendigDa(gast: Gast): boolean {
 export function sortiereBegleitungKeys(begleitung: Begleitung): string[] {
   return Object.keys(begleitung).sort((a, b) => Number(a) - Number(b));
 }
+
+// Sucht sowohl im Hauptgast-Namen als auch in benannten Begleitpersonen:
+// kommt jemand getrennt vom Hauptgast an und nennt nur den eigenen Namen,
+// muss die Suche die Zeile trotzdem finden.
+export function gastPasstZurSuche(gast: Gast, sucheLower: string): boolean {
+  if (!sucheLower) return true;
+  if (gast.nameLower.includes(sucheLower)) return true;
+  return Object.values(gast.begleitung).some((begleitperson) =>
+    begleitperson.name.toLowerCase().includes(sucheLower),
+  );
+}

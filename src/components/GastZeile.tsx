@@ -40,22 +40,36 @@ function CheckInButton({
 export function GastZeile({
   gast,
   onBearbeiten,
+  sucheLower = "",
 }: {
   gast: GastMitId;
   onBearbeiten: (gast: GastMitId) => void;
+  sucheLower?: string;
 }) {
-  const [offen, setOffen] = useState(false);
+  const [offenManuell, setOffenManuell] = useState(false);
   const begleitungKeys = sortiereBegleitungKeys(gast.begleitung);
   const hatBegleitung = begleitungKeys.length > 0;
   const gesamt = gesamtPersonen(gast);
   const eingecheckt = eingecheckePersonen(gast);
+
+  // Trifft die Suche auf eine Begleitperson (nicht den Hauptgast), klappt
+  // die Zeile automatisch auf - sonst wäre eine getrennt ankommende
+  // Begleitperson zwar gefunden, aber ihr Check-in-Button unsichtbar.
+  const begleitungTreffer = sucheLower
+    ? new Set(
+        begleitungKeys.filter((key) =>
+          gast.begleitung[key].name.toLowerCase().includes(sucheLower),
+        ),
+      )
+    : new Set<string>();
+  const offen = offenManuell || begleitungTreffer.size > 0;
 
   return (
     <div>
       <div className="flex items-center gap-3 p-4">
         <button
           type="button"
-          onClick={() => hatBegleitung && setOffen((offen) => !offen)}
+          onClick={() => hatBegleitung && setOffenManuell((offen) => !offen)}
           className="flex min-h-12 flex-1 items-center gap-2 text-left"
         >
           {hatBegleitung && (
@@ -100,7 +114,9 @@ export function GastZeile({
             return (
               <div
                 key={key}
-                className="flex items-center justify-between gap-3"
+                className={`flex items-center justify-between gap-3 rounded-md ${
+                  begleitungTreffer.has(key) ? "bg-amber-100 p-2 -m-2" : ""
+                }`}
               >
                 <span className="text-sm text-stone-600">
                   {begleitperson.name || `+${key}`}
