@@ -1,14 +1,24 @@
 // Parst locker formatierten, eingefügten Text (z. B. aus WhatsApp) in
-// Gäste-Gruppen: eine Zeile = ein Hauptgast mit optionalen Begleitpersonen.
+// Gäste-Gruppen: eine Zeile mit erkennbarem Präfix ("Gästeliste X",
+// "Gäste von X", ...) startet eine neue Gruppe mit X als Hauptgast. Jede
+// Zeile danach, bis zur nächsten Kopfzeile, wird als weitere Begleitperson
+// derselben Gruppe übernommen - unabhängig davon, ob mehrere Namen durch
+// Komma in einer Zeile stehen oder jeweils auf einer eigenen Zeile.
 //
-// Erwartetes Muster pro Zeile (Beispiel):
-//   "Gäste von Peter, Hans, Jürgen, Frank +1"
+// Beispiel (mehrzeilig, wie beim Kopieren aus WhatsApp üblich):
+//   Gästeliste Fahd
+//   Hans
+//   Jürgen
+// -> Hauptgast "Fahd", Begleitung "Hans", "Jürgen".
+//
+// Beispiel (einzeilig):
+//   Gäste von Peter, Hans, Jürgen, Frank +1
 // -> Hauptgast "Peter", Begleitung "Hans", "Jürgen", "Frank" + 1 unbenannte
 // Person (aus dem "+1" hinter Frank).
 //
 // Das ist eine Heuristik für ein bekanntes, einfaches Format - keine
 // generische Freitext-Erkennung. Die Vorschau vor dem Speichern erlaubt,
-// jede Zeile zu korrigieren.
+// jede Gruppe zu korrigieren.
 
 export interface TextGruppe {
   id: string;
@@ -19,7 +29,8 @@ export interface TextGruppe {
   moeglicheDublette: boolean;
 }
 
-const PRAEFIX_MUSTER = /^(gäste?|gast|guests?)\s+von\s+/i;
+const HEADER_MUSTER =
+  /^(gästeliste|gäste?\s+von|gast\s+von|guests?\s+of)\s*[:\-]?\s*/i;
 const PLUS_ANZAHL_MUSTER = /^(.*?)\s*\+\s*(\d+)\s*$/;
 
 function trenneePlusAnzahl(text: string): { name: string; zusatzAnzahl: number } {
@@ -30,42 +41,71 @@ function trenneePlusAnzahl(text: string): { name: string; zusatzAnzahl: number }
   return { name: text.trim(), zusatzAnzahl: 0 };
 }
 
-function parseZeile(zeile: string, index: number): TextGruppe {
-  const ohnePraefix = zeile.replace(PRAEFIX_MUSTER, "");
-  const teile = ohnePraefix
+// Zerlegt eine kommagetrennte Zeile in Begleitpersonen-Namen, "+N" erzeugt
+// zusätzliche unbenannte Einträge.
+function alsBegleitungNamen(text: string): string[] {
+  const ergebnis: string[] = [];
+  const teile = text
     .split(",")
     .map((teil) => teil.trim())
     .filter((teil) => teil.length > 0);
-
-  const hauptgastRoh = teile[0] ?? "";
-  const hauptgastAufgeteilt = trenneePlusAnzahl(hauptgastRoh);
-
-  const begleitungNamen: string[] = Array<string>(
-    hauptgastAufgeteilt.zusatzAnzahl,
-  ).fill("");
-
-  for (const teil of teile.slice(1)) {
+  for (const teil of teile) {
     const { name, zusatzAnzahl } = trenneePlusAnzahl(teil);
-    if (name) begleitungNamen.push(name);
-    for (let i = 0; i < zusatzAnzahl; i++) begleitungNamen.push("");
+    if (name) ergebnis.push(name);
+    for (let i = 0; i < zusatzAnzahl; i++) ergebnis.push("");
   }
+  return ergebnis;
+}
+
+function neueGruppe(
+  ursprungsZeile: string,
+  inhalt: string,
+  index: number,
+): TextGruppe {
+  // alsBegleitungNamen zerlegt die Zeile bereits korrekt an Kommas und
+  // "+N" (inkl. eines "+N" direkt am Hauptgast) - der erste Eintrag ist
+  // hier nur eben der Hauptgast statt einer Begleitperson.
+  const alleTeile = alsBegleitungNamen(inhalt);
 
   return {
-    id: `zeile-${index}`,
+    id: `gruppe-${index}`,
     ausgewaehlt: true,
-    hauptgast: hauptgastAufgeteilt.name,
-    begleitungNamen,
-    rohtext: zeile,
+    hauptgast: alleTeile[0] ?? "",
+    begleitungNamen: alleTeile.slice(1),
+    rohtext: ursprungsZeile,
     moeglicheDublette: false,
   };
 }
 
 export function parseGaesteText(text: string): TextGruppe[] {
-  return text
+  const zeilen = text
     .split("\n")
     .map((zeile) => zeile.trim())
-    .filter((zeile) => zeile.length > 0)
-    .map((zeile, index) => parseZeile(zeile, index));
+    .filter((zeile) => zeile.length > 0);
+
+  const gruppen: TextGruppe[] = [];
+  let aktuelle: TextGruppe | null = null;
+  let zaehler = 0;
+
+  for (const zeile of zeilen) {
+    const treffer = zeile.match(HEADER_MUSTER);
+    const istKopfzeile = treffer !== null;
+
+    if (istKopfzeile || !aktuelle) {
+      if (aktuelle) gruppen.push(aktuelle);
+      const inhalt = istKopfzeile ? zeile.replace(HEADER_MUSTER, "") : zeile;
+      aktuelle = neueGruppe(zeile, inhalt, zaehler);
+      zaehler++;
+    } else {
+      // Fortsetzungszeile ohne erkennbaren Präfix: gehört zur aktuell
+      // offenen Gruppe als weitere Begleitperson(en).
+      aktuelle.begleitungNamen.push(...alsBegleitungNamen(zeile));
+      aktuelle.rohtext += `, ${zeile}`;
+    }
+  }
+  if (aktuelle) gruppen.push(aktuelle);
+
+  return gruppen;
 }
 
 // Markiert (nur als Hinweis, nicht automatisch abgewählt) Hauptgäste, deren
