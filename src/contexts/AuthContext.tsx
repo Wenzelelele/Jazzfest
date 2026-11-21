@@ -8,11 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  // Admin = Dokument admins/{uid} existiert (siehe firestore.rules). Die
+  // Regeln setzen das serverseitig durch, hier steuert es nur die Anzeige.
+  istAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -20,6 +24,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminFuer, setAdminFuer] = useState<string | null>(null);
 
   useEffect(() => {
     // onAuthStateChanged liefert beim Start sofort den aus dem lokalen
@@ -33,8 +38,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
+  const uid = user?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    // onSnapshot statt getDoc: der Admin-Status liegt so auch offline aus
+    // dem Cache vor und aktualisiert sich live, sobald das Dokument in der
+    // Console angelegt wird.
+    const unsubscribe = onSnapshot(
+      doc(db, "admins", uid),
+      (snapshot) => setAdminFuer(snapshot.exists() ? uid : null),
+      () => setAdminFuer(null),
+    );
+    return unsubscribe;
+  }, [uid]);
+
+  const istAdmin = uid !== undefined && adminFuer === uid;
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, istAdmin }}>
       {children}
     </AuthContext.Provider>
   );

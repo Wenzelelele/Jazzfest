@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { getDocs } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import {
@@ -88,10 +89,12 @@ function EventKarte({
   event,
   aktiv,
   andereEvents,
+  istAdmin,
 }: {
   event: JazzEventMitId;
   aktiv: boolean;
   andereEvents: JazzEventMitId[];
+  istAdmin: boolean;
 }) {
   const { waehleEvent } = useEvents();
   const { zeigeFehler, zeigeInfo, beobachte } = useMeldung();
@@ -133,13 +136,31 @@ function EventKarte({
             setBearbeiten(false);
           }}
         >
-          <input value={name} onChange={(e) => setName(e.target.value)} className={eingabe} required />
-          <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} className={eingabe} required />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={eingabe}
+            required
+          />
+          <input
+            type="date"
+            value={datum}
+            onChange={(e) => setDatum(e.target.value)}
+            className={eingabe}
+            required
+          />
           <div className="flex gap-2">
-            <button type="button" onClick={() => setBearbeiten(false)} className={`${knopfSekundaer} flex-1`}>
+            <button
+              type="button"
+              onClick={() => setBearbeiten(false)}
+              className={`${knopfSekundaer} flex-1`}
+            >
               Abbrechen
             </button>
-            <button type="submit" className="min-h-12 flex-1 rounded-md bg-stone-900 text-sm font-medium text-stone-50">
+            <button
+              type="submit"
+              className="min-h-12 flex-1 rounded-md bg-stone-900 text-sm font-medium text-stone-50"
+            >
               Speichern
             </button>
           </div>
@@ -148,7 +169,9 @@ function EventKarte({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-medium text-stone-900">{event.name}</p>
-            <p className="text-sm text-stone-500">{formatiereDatum(event.datum)}</p>
+            <p className="text-sm text-stone-500">
+              {formatiereDatum(event.datum)}
+            </p>
           </div>
           {aktiv ? (
             <span className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
@@ -172,27 +195,33 @@ function EventKarte({
             Zur Liste
           </Link>
         )}
-        {!bearbeiten && (
-          <button type="button" onClick={() => setBearbeiten(true)} className={knopfSekundaer}>
+        {istAdmin && !bearbeiten && (
+          <button
+            type="button"
+            onClick={() => setBearbeiten(true)}
+            className={knopfSekundaer}
+          >
             Bearbeiten
           </button>
         )}
-        <button
-          type="button"
-          disabled={laeuft !== null}
-          onClick={() =>
-            ausfuehren("Export", async () => {
-              await exportiereEvent(event);
-              return "CSV-Export erstellt.";
-            })
-          }
-          className={knopfSekundaer}
-        >
-          {laeuft === "Export" ? "Exportiert…" : "Export CSV"}
-        </button>
+        {istAdmin && (
+          <button
+            type="button"
+            disabled={laeuft !== null}
+            onClick={() =>
+              ausfuehren("Export", async () => {
+                await exportiereEvent(event);
+                return "CSV-Export erstellt.";
+              })
+            }
+            className={knopfSekundaer}
+          >
+            {laeuft === "Export" ? "Exportiert…" : "Export CSV"}
+          </button>
+        )}
       </div>
 
-      {andereEvents.length > 0 && (
+      {istAdmin && andereEvents.length > 0 && (
         <div className="space-y-2 border-t border-stone-200 pt-3">
           <p className="text-sm text-stone-600">
             JIM Mitglieder aus anderem Event übernehmen (Check-in startet neu,
@@ -215,7 +244,10 @@ function EventKarte({
               disabled={!quelleId || laeuft !== null}
               onClick={() =>
                 ausfuehren("Übernahme", async () => {
-                  const anzahl = await mitgliederUebernehmen(quelleId, event.id);
+                  const anzahl = await mitgliederUebernehmen(
+                    quelleId,
+                    event.id,
+                  );
                   return `${anzahl} Mitglieder übernommen.`;
                 })
               }
@@ -227,43 +259,86 @@ function EventKarte({
         </div>
       )}
 
-      <div className="border-t border-stone-200 pt-3">
-        {loeschenBestaetigen ? (
-          <div className="space-y-2">
-            <p className="text-sm text-stone-600">
-              Event <strong>{event.name}</strong> mit allen Gästen, Mitgliedern
-              und Check-ins endgültig löschen? Vorher am besten exportieren.
-            </p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setLoeschenBestaetigen(false)} className={`${knopfSekundaer} flex-1`}>
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                disabled={laeuft !== null}
-                onClick={() =>
-                  ausfuehren("Löschen", async () => {
-                    await loescheEvent(event.id);
-                    return `Event „${event.name}" gelöscht.`;
-                  })
-                }
-                className="min-h-12 flex-1 rounded-md bg-red-700 text-sm text-white disabled:opacity-60"
-              >
-                {laeuft === "Löschen" ? "Löscht…" : "Endgültig löschen"}
-              </button>
+      {istAdmin && (
+        <div className="border-t border-stone-200 pt-3">
+          {loeschenBestaetigen ? (
+            <div className="space-y-2">
+              <p className="text-sm text-stone-600">
+                Event <strong>{event.name}</strong> mit allen Gästen,
+                Mitgliedern und Check-ins endgültig löschen? Vorher am besten
+                exportieren.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLoeschenBestaetigen(false)}
+                  className={`${knopfSekundaer} flex-1`}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  disabled={laeuft !== null}
+                  onClick={() =>
+                    ausfuehren("Löschen", async () => {
+                      await loescheEvent(event.id);
+                      return `Event „${event.name}" gelöscht.`;
+                    })
+                  }
+                  className="min-h-12 flex-1 rounded-md bg-red-700 text-sm text-white disabled:opacity-60"
+                >
+                  {laeuft === "Löschen" ? "Löscht…" : "Endgültig löschen"}
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setLoeschenBestaetigen(true)}
-            className="min-h-10 text-sm text-red-700 underline-offset-2 hover:underline"
-          >
-            Event löschen…
-          </button>
-        )}
-      </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setLoeschenBestaetigen(true)}
+              className="min-h-10 text-sm text-red-700 underline-offset-2 hover:underline"
+            >
+              Event löschen…
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+// Für Nicht-Admins: eigene UID anzeigen, damit der Account in der Firebase
+// Console zum Admin gemacht werden kann (Collection "admins", Dokument-ID =
+// UID).
+function AdminHinweis() {
+  const { user } = useAuth();
+  const { zeigeInfo } = useMeldung();
+  if (!user) return null;
+  return (
+    <details className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
+      <summary className="cursor-pointer text-stone-700">
+        Angemeldet als {user.email} (kein Admin)
+      </summary>
+      <div className="mt-3 space-y-2">
+        <p>
+          Events verwalten, Mitglieder importieren, Export und Statistik sind
+          Admins vorbehalten. Admin wird ein Account in der Firebase Console:
+          Firestore → Collection <span className="font-mono">admins</span> →
+          Dokument mit dieser ID anlegen:
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard
+              ?.writeText(user.uid)
+              .then(() => zeigeInfo("UID kopiert"))
+              .catch(() => {});
+          }}
+          className="block w-full rounded-md border border-stone-300 bg-stone-50 p-2 text-left font-mono text-xs break-all text-stone-900"
+        >
+          {user.uid}
+        </button>
+      </div>
+    </details>
   );
 }
 
@@ -297,7 +372,11 @@ function AlteDatenUebernehmen({ events }: { events: JazzEventMitId[] }) {
         Es gibt noch <strong>{anzahlAlt} Einträge</strong> aus der alten Liste
         (vor der Einführung von Events). In welches Event sollen sie?
       </p>
-      <select value={ziel} onChange={(e) => setZielId(e.target.value)} className={eingabe}>
+      <select
+        value={ziel}
+        onChange={(e) => setZielId(e.target.value)}
+        className={eingabe}
+      >
         {events.map((event) => (
           <option key={event.id} value={event.id}>
             {event.name} ({formatiereDatum(event.datum)})
@@ -329,6 +408,7 @@ function AlteDatenUebernehmen({ events }: { events: JazzEventMitId[] }) {
 
 export default function EventsSeite() {
   const { events, aktivesEvent, geladen } = useEvents();
+  const { istAdmin } = useAuth();
 
   return (
     <div className="flex flex-1 flex-col">
@@ -340,18 +420,18 @@ export default function EventsSeite() {
           ← Zurück
         </Link>
         <h1 className="font-display text-lg font-semibold text-stone-900">
-          Events
+          {istAdmin ? "Events" : "Event wählen"}
         </h1>
       </header>
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
         <p className="text-sm text-stone-500">
           Jedes Event hat eigene Listen und eigene Check-ins. Die Auswahl gilt
-          pro Gerät. Wichtig: Jedes Einlass-Gerät sollte das Event vorher
-          einmal online geöffnet haben, damit es offline verfügbar ist.
+          pro Gerät. Wichtig: Jedes Einlass-Gerät sollte das Event vorher einmal
+          online geöffnet haben, damit es offline verfügbar ist.
         </p>
 
-        <AlteDatenUebernehmen events={events} />
+        {istAdmin ? <AlteDatenUebernehmen events={events} /> : <AdminHinweis />}
 
         {geladen && events.length === 0 && (
           <p className="text-sm text-stone-600">Noch keine Events.</p>
@@ -363,10 +443,11 @@ export default function EventsSeite() {
             event={event}
             aktiv={event.id === aktivesEvent?.id}
             andereEvents={events.filter((anderes) => anderes.id !== event.id)}
+            istAdmin={istAdmin}
           />
         ))}
 
-        <NeuesEvent />
+        {istAdmin && <NeuesEvent />}
       </main>
     </div>
   );

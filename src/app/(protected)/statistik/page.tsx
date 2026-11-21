@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { NurAdmin } from "@/components/NurAdmin";
 import { useMemo, useState } from "react";
 import type { Timestamp } from "firebase/firestore";
 import { useEvents } from "@/contexts/EventContext";
@@ -174,7 +175,7 @@ function AnkunftsDiagramm({ fenster }: { fenster: Fenster[] }) {
   );
 }
 
-export default function StatistikSeite() {
+function StatistikSeiteInhalt() {
   const { aktivesEvent } = useEvents();
   const gaeste = useGaeste(aktivesEvent?.id);
 
@@ -268,5 +269,13 @@ export default function StatistikSeite() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function StatistikSeite() {
+  return (
+    <NurAdmin>
+      <StatistikSeiteInhalt />
+    </NurAdmin>
   );
 }

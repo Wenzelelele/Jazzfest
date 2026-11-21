@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { NurAdmin } from "@/components/NurAdmin";
 import { useMemo, useRef, useState } from "react";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
@@ -27,7 +28,7 @@ type Status =
   | { schritt: "vorschau" }
   | { schritt: "importiert"; anzahl: number };
 
-export default function ImportSeite() {
+function ImportSeiteInhalt() {
   const { aktivesEvent } = useEvents();
   const { beobachte } = useMeldung();
   const eventId = aktivesEvent?.id;
@@ -277,5 +278,13 @@ export default function ImportSeite() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ImportSeite() {
+  return (
+    <NurAdmin>
+      <ImportSeiteInhalt />
+    </NurAdmin>
   );
 }

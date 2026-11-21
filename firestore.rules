@@ -1,11 +1,65 @@
 rules_version = '2';
 
+// Rollen:
+// - Jeder angemeldete Account (manuell in der Firebase Console angelegt, es
+//   gibt keine Registrierung) darf Events lesen, Gäste anlegen, bearbeiten,
+//   löschen, einchecken und die Abendkasse zählen.
+// - Admins (Dokument admins/{uid} existiert) dürfen zusätzlich Events
+//   verwalten und Mitglieder (quelle "mitglied") importieren/übernehmen.
+//
+// Admin wird man ausschließlich über die Firebase Console: Collection
+// "admins", Dokument-ID = UID des Accounts (die App zeigt die eigene UID auf
+// der Event-Seite an). Bewusst keine E-Mail-Adresse hier im Code - das
+// Repository ist öffentlich.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Nur angemeldete Nutzer dürfen lesen oder schreiben. Accounts werden
-    // manuell in der Firebase Console angelegt, es gibt keine Registrierung.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function angemeldet() {
+      return request.auth != null;
+    }
+
+    function istAdmin() {
+      return angemeldet() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Jeder darf nur prüfen, ob er selbst Admin ist. Schreiben nur über die
+    // Console.
+    match /admins/{uid} {
+      allow read: if angemeldet() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if angemeldet();
+      allow create, delete: if istAdmin();
+      // Nicht-Admins dürfen am Event-Dokument nur den Abendkassen-Zähler
+      // ändern.
+      allow update: if istAdmin() || (
+        angemeldet() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['abendkasse'])
+      );
+
+      match /gaeste/{gastId} {
+        allow read: if angemeldet();
+        // Mitglieder-Einträge anlegen (Import/Übernahme) nur als Admin.
+        allow create: if istAdmin() || (
+          angemeldet() && request.resource.data.quelle != 'mitglied'
+        );
+        // Bearbeiten/Einchecken: alle, aber niemand ohne Admin-Rechte darf
+        // einen Gast zum Mitglied machen (oder umgekehrt).
+        allow update: if istAdmin() || (
+          angemeldet() && request.resource.data.quelle == resource.data.quelle
+        );
+        allow delete: if angemeldet();
+      }
+    }
+
+    // Alte, event-lose Collection aus der Zeit vor Events: nur noch lesen
+    // und (für die Migration) vom Admin verschieben/löschen.
+    match /gaeste/{gastId} {
+      allow read: if angemeldet();
+      allow write: if istAdmin();
     }
   }
 }

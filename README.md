@@ -84,6 +84,23 @@ Vercel baut und deployed automatisch bei jedem Push auf den verbundenen
 Branch. Die Firestore-Regeln sind davon unabhängig - Schritt 3 oben muss
 separat gemacht werden (einmalig, bzw. erneut bei Änderungen an den Regeln).
 
+## Benutzer und Admin
+
+- **Benutzer anlegen**: Firebase Console → Authentication → Nutzer →
+  „Nutzer hinzufügen“. Alle Accounts sehen dieselben Events und dürfen Gäste
+  anlegen, bearbeiten, löschen, einchecken und die Abendkasse zählen.
+- **Admin** darf zusätzlich Events verwalten (anlegen, bearbeiten, löschen,
+  Mitglieder übernehmen), Mitglieder importieren, exportieren und die
+  Statistik sehen.
+- **Admin machen**: Firebase Console → Firestore → Collection `admins` →
+  Dokument anlegen, **Dokument-ID = UID** des Accounts (steht unter
+  Authentication → Nutzer, und die App zeigt sie Nicht-Admins auf der Seite
+  „Event wählen“ an). Felder sind egal, z. B. `email` als Notiz.
+- Durchgesetzt wird das in [firestore.rules](firestore.rules), nicht nur in
+  der Oberfläche. Ausnahme: Export und Statistik sind nur in der Oberfläche
+  ausgeblendet - lesen darf jeder Account alle Gäste (sonst ginge kein
+  Check-in).
+
 ## Events und Ablauf am Veranstaltungstag
 
 Gäste, Mitglieder und Check-ins liegen pro Event unter

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
@@ -27,10 +28,10 @@ const FILTER_OPTIONEN: { wert: FilterWert; label: string }[] = [
 ];
 
 type FormularStatus =
-  | { offen: false }
-  | { offen: true; gast?: GastMitId; vorgabeName?: string };
+  { offen: false } | { offen: true; gast?: GastMitId; vorgabeName?: string };
 
 function Menue({ onExport }: { onExport: () => void }) {
+  const { istAdmin, user } = useAuth();
   const [offen, setOffen] = useState(false);
   const eintrag =
     "flex min-h-12 w-full items-center px-4 text-left text-sm text-stone-700 hover:bg-stone-100";
@@ -55,30 +56,38 @@ function Menue({ onExport }: { onExport: () => void }) {
           />
           <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-md border border-stone-200 bg-white py-1 shadow-lg">
             <Link href="/events" className={eintrag}>
-              Events verwalten
-            </Link>
-            <Link href="/statistik" className={eintrag}>
-              Statistik
-            </Link>
-            <Link href="/import" className={eintrag}>
-              Mitglieder importieren
+              {istAdmin ? "Events verwalten" : "Event wählen"}
             </Link>
             <Link href="/text-import" className={eintrag}>
               Gäste aus Text einfügen
             </Link>
+            {istAdmin && (
+              <>
+                <Link href="/statistik" className={eintrag}>
+                  Statistik
+                </Link>
+                <Link href="/import" className={eintrag}>
+                  Mitglieder importieren
+                </Link>
+                <button
+                  type="button"
+                  className={eintrag}
+                  onClick={() => {
+                    setOffen(false);
+                    onExport();
+                  }}
+                >
+                  Export als CSV
+                </button>
+              </>
+            )}
+            <p className="truncate border-t border-stone-200 px-4 pt-2 text-xs text-stone-400">
+              {user?.email}
+              {istAdmin ? " · Admin" : ""}
+            </p>
             <button
               type="button"
-              className={eintrag}
-              onClick={() => {
-                setOffen(false);
-                onExport();
-              }}
-            >
-              Export als CSV
-            </button>
-            <button
-              type="button"
-              className={`${eintrag} border-t border-stone-200 text-stone-500`}
+              className={`${eintrag} text-stone-500`}
               onClick={() => signOut(auth)}
             >
               Abmelden
@@ -127,6 +136,7 @@ function Abendkasse({ eventId, anzahl }: { eventId: string; anzahl: number }) {
 
 export default function Home() {
   const { aktivesEvent, geladen } = useEvents();
+  const { istAdmin } = useAuth();
   const eventId = aktivesEvent?.id;
   const gaeste = useGaeste(eventId);
   const [tab, setTab] = useState<TabWert>("gaeste");
@@ -153,7 +163,8 @@ export default function Home() {
     [listeMitglieder],
   );
   const abendkasse = aktivesEvent?.abendkasse ?? 0;
-  const imSaal = summeGaeste.eingecheckt + summeMitglieder.eingecheckt + abendkasse;
+  const imSaal =
+    summeGaeste.eingecheckt + summeMitglieder.eingecheckt + abendkasse;
 
   const gaesteImTab = tab === "mitglieder" ? listeMitglieder : listeGaeste;
   const andererTab = tab === "mitglieder" ? listeGaeste : listeMitglieder;
@@ -196,12 +207,18 @@ export default function Home() {
           Jazzfest
         </p>
         <p className="text-sm text-stone-500">Noch kein Event angelegt.</p>
-        <Link
-          href="/events"
-          className="flex min-h-12 items-center rounded-md bg-stone-900 px-5 font-medium text-stone-50"
-        >
-          Event anlegen
-        </Link>
+        {istAdmin ? (
+          <Link
+            href="/events"
+            className="flex min-h-12 items-center rounded-md bg-stone-900 px-5 font-medium text-stone-50"
+          >
+            Event anlegen
+          </Link>
+        ) : (
+          <p className="text-sm text-stone-500">
+            Events legt ein Admin an - sobald eins existiert, erscheint es hier.
+          </p>
+        )}
         <button
           type="button"
           onClick={() => signOut(auth)}
@@ -233,7 +250,9 @@ export default function Home() {
             <p className="text-xs text-stone-500">im Saal</p>
           </div>
           <Menue
-            onExport={() => aktivesEvent && ladeCsvHerunter(aktivesEvent, gaeste)}
+            onExport={() =>
+              aktivesEvent && ladeCsvHerunter(aktivesEvent, gaeste)
+            }
           />
         </div>
 
