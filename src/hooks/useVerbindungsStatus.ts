@@ -11,7 +11,9 @@ export type VerbindungsStatus = "offline" | "synchronisiert" | "aktuell";
 // aber (noch) keine echte Verbindung zum Server aufbauen konnte - das ist
 // die für die Nutzer:innen am Einlass relevantere Aussage als der reine
 // Browser-Online-Status.
-export function useVerbindungsStatus(): VerbindungsStatus {
+export function useVerbindungsStatus(
+  eventId: string | undefined,
+): VerbindungsStatus {
   const [online, setOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
@@ -35,8 +37,9 @@ export function useVerbindungsStatus(): VerbindungsStatus {
   }, []);
 
   useEffect(() => {
+    if (!eventId) return;
     const unsubscribe = onSnapshot(
-      gaesteCollectionRef(),
+      gaesteCollectionRef(eventId),
       { includeMetadataChanges: true },
       (snapshot) => {
         setAusCache(snapshot.metadata.fromCache);
@@ -44,7 +47,7 @@ export function useVerbindungsStatus(): VerbindungsStatus {
       },
     );
     return unsubscribe;
-  }, []);
+  }, [eventId]);
 
   if (!online || ausCache) return "offline";
   if (wartendeSchreibvorgaenge) return "synchronisiert";

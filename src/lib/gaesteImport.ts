@@ -55,6 +55,7 @@ export function markiereDubletten(
 const BATCH_GROESSE = 450; // Firestore erlaubt maximal 500 Schreibvorgänge pro Batch
 
 export async function importiereAlsBatch(
+  eventId: string,
   zeilen: ImportZeile[],
 ): Promise<number> {
   const ausgewaehlteNamen = zeilen
@@ -65,7 +66,7 @@ export async function importiereAlsBatch(
     const stapel = ausgewaehlteNamen.slice(start, start + BATCH_GROESSE);
     const batch = writeBatch(db);
     for (const name of stapel) {
-      const ref = doc(gaesteCollectionRef());
+      const ref = doc(gaesteCollectionRef(eventId));
       batch.set(ref, {
         name,
         nameLower: nameLowerVon(name),
@@ -73,6 +74,7 @@ export async function importiereAlsBatch(
         notiz: "",
         checkedIn: false,
         checkedInAt: null,
+        checkedInBy: null,
         begleitung: {},
         erstelltAm: serverTimestamp() as unknown as Timestamp,
       });

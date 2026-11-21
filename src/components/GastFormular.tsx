@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useEvents } from "@/contexts/EventContext";
+import { useMeldung } from "@/contexts/MeldungContext";
 import {
   aktualisiereGast,
   erstelleGast,
@@ -13,12 +15,17 @@ const MAX_BEGLEITUNG = 5;
 
 interface GastFormularProps {
   gast?: GastMitId;
+  // Vorbelegung für "Gast aus Suche anlegen"
+  vorgabeName?: string;
   onClose: () => void;
 }
 
-export function GastFormular({ gast, onClose }: GastFormularProps) {
+export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) {
+  const { aktivesEvent } = useEvents();
+  const { beobachte, zeigeInfo } = useMeldung();
+  const eventId = aktivesEvent?.id;
   const bearbeitenModus = gast !== undefined;
-  const [name, setName] = useState(gast?.name ?? "");
+  const [name, setName] = useState(gast?.name ?? vorgabeName ?? "");
   const [notiz, setNotiz] = useState(gast?.notiz ?? "");
   const [begleitungNamen, setBegleitungNamen] = useState<string[]>(() => {
     if (!gast) return [];
@@ -55,27 +62,41 @@ export function GastFormular({ gast, onClose }: GastFormularProps) {
       setFehler("Bitte einen Namen eingeben.");
       return;
     }
+    if (!eventId) {
+      setFehler("Kein Event ausgewählt.");
+      return;
+    }
     setFehler(null);
     if (bearbeitenModus) {
-      aktualisiereGast(gast.id, gast, {
-        name: nameGetrimmt,
-        notiz: notiz.trim(),
-        begleitungNamen,
-      }).catch(console.error);
+      beobachte(
+        aktualisiereGast(eventId, gast.id, gast, {
+          name: nameGetrimmt,
+          notiz: notiz.trim(),
+          begleitungNamen,
+        }),
+        `${nameGetrimmt} konnte nicht gespeichert werden.`,
+      );
     } else {
-      erstelleGast({
-        name: nameGetrimmt,
-        notiz: notiz.trim(),
-        begleitungNamen,
-        quelle: "manuell",
-      }).catch(console.error);
+      beobachte(
+        erstelleGast(eventId, {
+          name: nameGetrimmt,
+          notiz: notiz.trim(),
+          begleitungNamen,
+          quelle: "manuell",
+        }),
+        `${nameGetrimmt} konnte nicht angelegt werden.`,
+      );
+      zeigeInfo(`${nameGetrimmt} hinzugefügt`);
     }
     onClose();
   }
 
   function handleLoeschen() {
-    if (!gast) return;
-    loescheGast(gast.id).catch(console.error);
+    if (!gast || !eventId) return;
+    beobachte(
+      loescheGast(eventId, gast.id),
+      `${gast.name} konnte nicht gelöscht werden.`,
+    );
     onClose();
   }
 

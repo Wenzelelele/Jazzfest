@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { useEvents } from "@/contexts/EventContext";
+import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { parseCsv } from "@/lib/csvImport";
-import { alleGaesteLoeschen } from "@/lib/gaeste";
 import {
   importiereAlsBatch,
   markiereDubletten,
@@ -27,7 +28,10 @@ type Status =
   | { schritt: "importiert"; anzahl: number };
 
 export default function ImportSeite() {
-  const gaeste = useGaeste();
+  const { aktivesEvent } = useEvents();
+  const { beobachte } = useMeldung();
+  const eventId = aktivesEvent?.id;
+  const gaeste = useGaeste(eventId);
   const bestehendeNamenLower = useMemo(
     () => new Set(gaeste.map((gast) => gast.nameLower)),
     [gaeste],
@@ -37,25 +41,6 @@ export default function ImportSeite() {
   const [zeilen, setZeilen] = useState<ImportZeile[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
   const dateiInputRef = useRef<HTMLInputElement>(null);
-  const [loeschenBestaetigen, setLoeschenBestaetigen] = useState(false);
-  const [loescheLaeuft, setLoescheLaeuft] = useState(false);
-
-  // Anders als die übrigen Schreibaktionen in der App bewusst MIT await:
-  // das ist eine seltene, irreversible Admin-Aktion nach dem Event (nicht
-  // Teil des Offline-Check-in-Flows am Einlass), da soll die Bestätigung
-  // erst erscheinen, wenn wirklich alles gelöscht ist.
-  async function handleAlleLoeschen() {
-    setLoescheLaeuft(true);
-    try {
-      await alleGaesteLoeschen();
-      setLoeschenBestaetigen(false);
-    } catch (err) {
-      console.error(err);
-      setFehler("Löschen fehlgeschlagen. Bitte erneut versuchen.");
-    } finally {
-      setLoescheLaeuft(false);
-    }
-  }
 
   async function handleDateiAuswahl(datei: File) {
     setFehler(null);
@@ -95,7 +80,14 @@ export default function ImportSeite() {
   function handleImportBestaetigen() {
     setFehler(null);
     const anzahl = anzahlAusgewaehlt;
-    importiereAlsBatch(zeilen).catch(console.error);
+    if (!eventId) {
+      setFehler("Kein Event ausgewählt.");
+      return;
+    }
+    beobachte(
+      importiereAlsBatch(eventId, zeilen),
+      "Import konnte nicht gespeichert werden.",
+    );
     setStatus({ schritt: "importiert", anzahl });
   }
 
@@ -119,11 +111,21 @@ export default function ImportSeite() {
         <h1 className="font-display text-lg font-semibold text-stone-900">
           Mitgliederliste importieren
         </h1>
+        {aktivesEvent && (
+          <span className="ml-auto text-xs text-stone-500">
+            {aktivesEvent.name}
+          </span>
+        )}
       </header>
 
       <main className="flex-1 p-4">
         {status.schritt === "upload" && (
           <div className="mx-auto max-w-md space-y-4 pt-8 text-center">
+            {!aktivesEvent && (
+              <p className="text-sm text-red-700">
+                Bitte zuerst unter <Link href="/events" className="underline">Events</Link> ein Event anlegen.
+              </p>
+            )}
             <p className="text-sm text-stone-500">
               PDF oder CSV mit der Mitgliederliste auswählen. Bei PDF muss der
               Text auswählbar sein (kein Scan).
@@ -144,45 +146,6 @@ export default function ImportSeite() {
               </p>
             )}
 
-            <div className="rounded-md border border-red-200 p-4 text-left">
-              <p className="mb-3 text-sm font-medium text-red-900">
-                Gefahrenzone - erst nach dem Event
-              </p>
-              {loeschenBestaetigen ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-stone-600">
-                    Wirklich <strong>alle {gaeste.length} Einträge</strong>{" "}
-                    (Gästeliste und JIM Mitglieder) endgültig löschen? Das
-                    kann nicht rückgängig gemacht werden.
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setLoeschenBestaetigen(false)}
-                      className="min-h-12 flex-1 rounded-md border border-stone-300 text-stone-700"
-                    >
-                      Abbrechen
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAlleLoeschen}
-                      disabled={loescheLaeuft}
-                      className="min-h-12 flex-1 rounded-md bg-red-700 text-white disabled:opacity-60"
-                    >
-                      {loescheLaeuft ? "Löscht…" : "Endgültig alle löschen"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setLoeschenBestaetigen(true)}
-                  className="min-h-12 w-full rounded-md border border-red-300 text-sm text-red-700"
-                >
-                  Alle Gäste löschen (Reset nach dem Event)
-                </button>
-              )}
-            </div>
           </div>
         )}
 

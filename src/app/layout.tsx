@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { MeldungProvider } from "@/contexts/MeldungContext";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
@@ -51,7 +52,9 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <ServiceWorkerRegistrar />
-        <AuthProvider>{children}</AuthProvider>
+        <MeldungProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </MeldungProvider>
       </body>
     </html>
   );

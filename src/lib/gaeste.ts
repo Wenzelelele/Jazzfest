@@ -10,13 +10,15 @@ import {
   writeBatch,
   type Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { namePasst } from "@/lib/suche";
 
 export type Quelle = "mitglied" | "manuell";
 
 export interface Begleitperson {
   checkedIn: boolean;
   checkedInAt: Timestamp | null;
+  checkedInBy?: string | null;
   name: string;
 }
 
@@ -34,6 +36,7 @@ export interface Gast {
   notiz: string;
   checkedIn: boolean;
   checkedInAt: Timestamp | null;
+  checkedInBy?: string | null;
   begleitung: Begleitung;
   erstelltAm: Timestamp;
 }
@@ -42,18 +45,25 @@ export interface GastMitId extends Gast {
   id: string;
 }
 
-export const GAESTE_COLLECTION = "gaeste";
-
-export function gaesteCollectionRef() {
-  return collection(db, GAESTE_COLLECTION);
+// Gäste liegen pro Event in einer eigenen Subcollection:
+// events/{eventId}/gaeste/{gastId}. So hat jedes Event seinen eigenen
+// Check-in-Stand, ein Mitglied kann bei mehreren Events getrennt kommen.
+export function gaesteCollectionRef(eventId: string) {
+  return collection(db, "events", eventId, "gaeste");
 }
 
-export function gastDocRef(gastId: string) {
-  return doc(db, GAESTE_COLLECTION, gastId);
+export function gastDocRef(eventId: string, gastId: string) {
+  return doc(db, "events", eventId, "gaeste", gastId);
 }
 
 export function nameLowerVon(name: string): string {
   return name.trim().toLowerCase();
+}
+
+// Wer eingecheckt hat - der Login-Account des Geräts (E-Mail). Offline
+// verfügbar, weil der Auth-Zustand lokal persistiert ist.
+export function aktuellerNutzer(): string | null {
+  return auth.currentUser?.email ?? auth.currentUser?.uid ?? null;
 }
 
 export function baueBegleitung(namen: string[]): Begleitung {
@@ -62,14 +72,11 @@ export function baueBegleitung(namen: string[]): Begleitung {
     begleitung[String(index + 1)] = {
       checkedIn: false,
       checkedInAt: null,
+      checkedInBy: null,
       name: name.trim(),
     };
   });
   return begleitung;
-}
-
-export function leereBegleitung(anzahl: number): Begleitung {
-  return baueBegleitung(Array<string>(anzahl).fill(""));
 }
 
 export interface NeuerGastInput {
@@ -80,17 +87,18 @@ export interface NeuerGastInput {
   quelle?: Quelle;
 }
 
-export async function erstelleGast(input: NeuerGastInput) {
+export async function erstelleGast(eventId: string, input: NeuerGastInput) {
   const namen =
     input.begleitungNamen ??
     Array<string>(input.anzahlBegleitung ?? 0).fill("");
-  return addDoc(gaesteCollectionRef(), {
+  return addDoc(gaesteCollectionRef(eventId), {
     name: input.name,
     nameLower: nameLowerVon(input.name),
     quelle: input.quelle ?? "manuell",
     notiz: input.notiz ?? "",
     checkedIn: false,
     checkedInAt: null,
+    checkedInBy: null,
     begleitung: baueBegleitung(namen),
     erstelltAm: serverTimestamp(),
   });
@@ -106,6 +114,7 @@ export interface GastBearbeitenInput {
 // werden neue Keys ergänzt oder überzählige entfernt, bestehende Keys
 // behalten ihren checkedIn-Status und bekommen nur den Namen aktualisiert.
 export async function aktualisiereGast(
+  eventId: string,
   gastId: string,
   bestehenderGast: Gast,
   input: GastBearbeitenInput,
@@ -127,6 +136,7 @@ export async function aktualisiereGast(
       updates[`begleitung.${key}`] = {
         checkedIn: false,
         checkedInAt: null,
+        checkedInBy: null,
         name: input.begleitungNamen[i - 1].trim(),
       };
     } else {
@@ -134,19 +144,18 @@ export async function aktualisiereGast(
     }
   }
 
-  await updateDoc(gastDocRef(gastId), updates);
+  await updateDoc(gastDocRef(eventId, gastId), updates);
 }
 
-export async function loescheGast(gastId: string) {
-  await deleteDoc(gastDocRef(gastId));
+export async function loescheGast(eventId: string, gastId: string) {
+  await deleteDoc(gastDocRef(eventId, gastId));
 }
 
 const LOESCH_BATCH_GROESSE = 450; // Firestore erlaubt maximal 500 Schreibvorgänge pro Batch
 
-// Löscht die komplette gaeste-Collection (Gäste UND importierte Mitglieder) -
-// gedacht für den Reset nach dem Event, vor dem nächsten Jahr.
-export async function alleGaesteLoeschen(): Promise<number> {
-  const snapshot = await getDocs(gaesteCollectionRef());
+// Löscht alle Gäste (und Mitglieder) EINES Events.
+export async function alleGaesteLoeschen(eventId: string): Promise<number> {
+  const snapshot = await getDocs(gaesteCollectionRef(eventId));
   const alleRefs = snapshot.docs.map((docSnapshot) => docSnapshot.ref);
 
   for (let start = 0; start < alleRefs.length; start += LOESCH_BATCH_GROESSE) {
@@ -161,24 +170,33 @@ export async function alleGaesteLoeschen(): Promise<number> {
   return alleRefs.length;
 }
 
-export async function checkInHauptgast(gastId: string, checkedIn: boolean) {
-  await updateDoc(gastDocRef(gastId), {
+export async function checkInHauptgast(
+  eventId: string,
+  gastId: string,
+  checkedIn: boolean,
+) {
+  await updateDoc(gastDocRef(eventId, gastId), {
     checkedIn,
     checkedInAt: checkedIn ? serverTimestamp() : null,
+    checkedInBy: checkedIn ? aktuellerNutzer() : null,
   });
 }
 
 // Gezielter Feld-Update auf einen einzelnen Map-Key - siehe Kommentar bei
 // Begleitung. Niemals das gesamte begleitung-Objekt überschreiben.
 export async function checkInBegleitung(
+  eventId: string,
   gastId: string,
   begleitungKey: string,
   checkedIn: boolean,
 ) {
-  await updateDoc(gastDocRef(gastId), {
+  await updateDoc(gastDocRef(eventId, gastId), {
     [`begleitung.${begleitungKey}.checkedIn`]: checkedIn,
     [`begleitung.${begleitungKey}.checkedInAt`]: checkedIn
       ? serverTimestamp()
+      : null,
+    [`begleitung.${begleitungKey}.checkedInBy`]: checkedIn
+      ? aktuellerNutzer()
       : null,
   });
 }
@@ -205,10 +223,24 @@ export function sortiereBegleitungKeys(begleitung: Begleitung): string[] {
 // Sucht sowohl im Hauptgast-Namen als auch in benannten Begleitpersonen:
 // kommt jemand getrennt vom Hauptgast an und nennt nur den eigenen Namen,
 // muss die Suche die Zeile trotzdem finden.
-export function gastPasstZurSuche(gast: Gast, sucheLower: string): boolean {
-  if (!sucheLower) return true;
-  if (gast.nameLower.includes(sucheLower)) return true;
-  return Object.values(gast.begleitung).some((begleitperson) =>
-    begleitperson.name.toLowerCase().includes(sucheLower),
+export function gastPasstZurSuche(
+  gast: Gast,
+  begriffe: readonly string[],
+): boolean {
+  if (begriffe.length === 0) return true;
+  if (namePasst(gast.name, begriffe)) return true;
+  return Object.values(gast.begleitung).some(
+    (begleitperson) =>
+      begleitperson.name.length > 0 && namePasst(begleitperson.name, begriffe),
   );
+}
+
+export function summiere(gaeste: readonly Gast[]) {
+  let gesamt = 0;
+  let eingecheckt = 0;
+  for (const gast of gaeste) {
+    gesamt += gesamtPersonen(gast);
+    eingecheckt += eingecheckePersonen(gast);
+  }
+  return { gesamt, eingecheckt };
 }

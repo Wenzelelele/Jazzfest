@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useEvents } from "@/contexts/EventContext";
+import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { erstelleGast } from "@/lib/gaeste";
 import {
@@ -16,7 +18,10 @@ type Status =
   | { schritt: "angelegt"; anzahl: number };
 
 export default function TextImportSeite() {
-  const gaeste = useGaeste();
+  const { aktivesEvent } = useEvents();
+  const { beobachte, zeigeFehler } = useMeldung();
+  const eventId = aktivesEvent?.id;
+  const gaeste = useGaeste(eventId);
   const bestehendeNamenLower = useMemo(
     () => new Set(gaeste.map((gast) => gast.nameLower)),
     [gaeste],
@@ -81,15 +86,22 @@ export default function TextImportSeite() {
   // Kommentar in GastFormular.tsx: offline würde ein await hier den
   // Erfolgs-Screen unbegrenzt blockieren.
   function handleUebernehmen() {
+    if (!eventId) {
+      zeigeFehler("Kein Event ausgewählt.");
+      return;
+    }
     const ausgewaehlte = gruppen.filter(
       (gruppe) => gruppe.ausgewaehlt && gruppe.hauptgast.trim().length > 0,
     );
     for (const gruppe of ausgewaehlte) {
-      erstelleGast({
-        name: gruppe.hauptgast.trim(),
-        begleitungNamen: gruppe.begleitungNamen,
-        quelle: "manuell",
-      }).catch(console.error);
+      beobachte(
+        erstelleGast(eventId, {
+          name: gruppe.hauptgast.trim(),
+          begleitungNamen: gruppe.begleitungNamen,
+          quelle: "manuell",
+        }),
+        `${gruppe.hauptgast.trim()} konnte nicht angelegt werden.`,
+      );
     }
     setStatus({ schritt: "angelegt", anzahl: ausgewaehlte.length });
   }
@@ -114,6 +126,11 @@ export default function TextImportSeite() {
         <h1 className="font-display text-lg font-semibold text-stone-900">
           Gäste aus Text einfügen
         </h1>
+        {aktivesEvent && (
+          <span className="ml-auto text-xs text-stone-500">
+            {aktivesEvent.name}
+          </span>
+        )}
       </header>
 
       <main className="flex-1 p-4">

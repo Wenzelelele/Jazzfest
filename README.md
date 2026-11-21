@@ -84,12 +84,50 @@ Vercel baut und deployed automatisch bei jedem Push auf den verbundenen
 Branch. Die Firestore-Regeln sind davon unabhängig - Schritt 3 oben muss
 separat gemacht werden (einmalig, bzw. erneut bei Änderungen an den Regeln).
 
+## Events und Ablauf am Veranstaltungstag
+
+Gäste, Mitglieder und Check-ins liegen pro Event unter
+`events/{eventId}/gaeste`. Ein Mitglied kann so bei mehreren Events getrennt
+einchecken.
+
+1. Menü (☰) → **Events verwalten** → Event anlegen (Name + Datum)
+2. Mitgliederliste importieren (Menü → Mitglieder importieren) - für weitere
+   Events reicht in der Event-Verwaltung **„JIM Mitglieder übernehmen“** aus
+   einem anderen Event (Check-in startet neu)
+3. Gäste per **+**, per Suche („… als Gast hinzufügen“) oder per Text-Import
+   anlegen
+4. **Jedes Einlass-Gerät vorher einmal online öffnen und das Event
+   auswählen** - nur so liegt die Liste dieses Events offline vor. Die
+   Event-Auswahl gilt pro Gerät; standardmäßig ist das Event von heute
+   (sonst das nächste) aktiv
+5. Nach dem Event: Event-Verwaltung → **Export CSV** (eine Zeile pro Person,
+   mit Uhrzeit und Account), danach ggf. Event löschen
+
+Bedienung am Einlass:
+- **Check-in**: ein Tap. **Auschecken**: Button gedrückt halten. Nach jeder
+  Aktion erscheint unten eine Leiste mit **Rückgängig**
+- Suche ignoriert Umlaute/Akzente und Wortreihenfolge („max mueller“ findet
+  „Müller, Max“) und zeigt Treffer im jeweils anderen Tab an
+- Tab **Abendkasse**: Zähler für Personen ohne Listeneintrag (mehrere Geräte
+  gleichzeitig und offline möglich, per `increment()`)
+- Kopfzeile zeigt „im Saal“ = alle Eingecheckten + Abendkasse; Menü →
+  **Statistik** zeigt Ankünfte pro 15 Minuten und wer wie viele eingecheckt hat
+- Der Bildschirm bleibt bei geöffneter Liste wach (Wake Lock, wo unterstützt)
+- Schreibfehler (z. B. abgelaufener Login) werden als rote Leiste angezeigt
+
+Daten aus der Zeit vor Events (alte Collection `gaeste`) bietet die
+Event-Verwaltung einmalig zur Übernahme in ein Event an.
+
 ## Projektstruktur (kurz)
 
 - `src/app/(protected)/` - Hauptansicht, Formular, Import (nur eingeloggt
   erreichbar)
 - `src/app/login/` - Login-Seite
+- `src/app/(protected)/events/`, `.../statistik/` - Event-Verwaltung, Statistik
+- `src/lib/events.ts` - Events, Abendkasse, Mitglieder-Übernahme, Migration
 - `src/lib/gaeste.ts` - Datenmodell und Firestore-Lese-/Schreibfunktionen
+- `src/lib/suche.ts` / `src/lib/export.ts` - Such-Normalisierung, CSV-Export
+- `src/contexts/` - Auth, aktives Event (pro Gerät), Meldungsleiste
 - `src/lib/pdfImport.ts` / `src/lib/csvImport.ts` / `src/lib/gaesteImport.ts` -
   Mitgliederlisten-Import (Parsing getrennt nach Format, Vorschau/Dubletten/
   Batch-Write gemeinsam)
@@ -111,7 +149,8 @@ Vor dem echten Einlassbetrieb einmal manuell durchspielen:
       Begleitperson - beide müssen die Zeile finden (und bei Begleitung
       automatisch aufklappen)
 - [ ] Check-in Hauptgast, Check-in einzelne Begleitperson, beide wieder
-      rückgängig machen (Tap auf „Da ✓")
+      auschecken (Button „Da ✓" gedrückt halten) und einmal per
+      „Rückgängig" in der Leiste
 - [ ] Filter „Alle" / „Noch nicht da" / „Schon da" schalten korrekt um
 - [ ] Gast bearbeiten (Name ändern, Begleitpersonen-Anzahl ändern), löschen
       mit Bestätigung

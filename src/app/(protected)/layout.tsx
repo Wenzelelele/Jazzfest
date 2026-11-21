@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { EventProvider } from "@/contexts/EventContext";
 
 export default function ProtectedLayout({
   children,
@@ -32,5 +33,5 @@ export default function ProtectedLayout({
     return null;
   }
 
-  return <>{children}</>;
+  return <EventProvider>{children}</EventProvider>;
 }

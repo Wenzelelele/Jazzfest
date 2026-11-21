@@ -8,8 +8,8 @@ const STATUS_ANZEIGE = {
   aktuell: { text: "Aktuell", punkt: "bg-emerald-500" },
 } as const;
 
-export function VerbindungsIndikator() {
-  const status = useVerbindungsStatus();
+export function VerbindungsIndikator({ eventId }: { eventId?: string }) {
+  const status = useVerbindungsStatus(eventId);
   const anzeige = STATUS_ANZEIGE[status];
 
   return (
