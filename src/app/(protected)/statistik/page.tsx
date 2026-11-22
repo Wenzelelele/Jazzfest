@@ -7,7 +7,7 @@ import type { Timestamp } from "firebase/firestore";
 import { useEvents } from "@/contexts/EventContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { formatiereDatum } from "@/lib/events";
-import { summiere, type GastMitId } from "@/lib/gaeste";
+import { istAngefragt, summiere, type GastMitId } from "@/lib/gaeste";
 
 const INTERVALL_MIN = 15;
 
@@ -25,7 +25,8 @@ function sammleAnkuenfte(gaeste: readonly GastMitId[]): Ankunft[] {
   ) => {
     // Offline-Check-ins haben bis zum Sync noch keinen Server-Zeitstempel
     // (null) - die zählen in den Summen, aber noch nicht im Zeitverlauf.
-    if (!checkedIn || !zeitpunkt || typeof zeitpunkt.toDate !== "function") return;
+    if (!checkedIn || !zeitpunkt || typeof zeitpunkt.toDate !== "function")
+      return;
     ergebnis.push({ zeit: zeitpunkt.toDate(), von: von || "unbekannt" });
   };
   for (const gast of gaeste) {
@@ -38,7 +39,10 @@ function sammleAnkuenfte(gaeste: readonly GastMitId[]): Ankunft[] {
 }
 
 function uhr(datum: Date): string {
-  return datum.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return datum.toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 interface Fenster {
@@ -50,7 +54,8 @@ function inFenster(ankuenfte: readonly Ankunft[]): Fenster[] {
   if (ankuenfte.length === 0) return [];
   const ms = INTERVALL_MIN * 60 * 1000;
   const erstes = Math.floor(ankuenfte[0].zeit.getTime() / ms) * ms;
-  const letztes = Math.floor(ankuenfte[ankuenfte.length - 1].zeit.getTime() / ms) * ms;
+  const letztes =
+    Math.floor(ankuenfte[ankuenfte.length - 1].zeit.getTime() / ms) * ms;
   // Obergrenze gegen Ausreißer (z. B. ein Test-Check-in Tage vorher)
   const anzahlFenster = Math.min(Math.round((letztes - erstes) / ms) + 1, 96);
   const startZeit = letztes - (anzahlFenster - 1) * ms;
@@ -76,7 +81,9 @@ function Kachel({
 }) {
   return (
     <div className="rounded-md border border-stone-200 bg-white p-4">
-      <p className="text-3xl font-semibold text-stone-900 tabular-nums">{wert}</p>
+      <p className="text-3xl font-semibold text-stone-900 tabular-nums">
+        {wert}
+      </p>
       <p className="text-sm text-stone-600">{label}</p>
       {zusatz && <p className="text-xs text-stone-500">{zusatz}</p>}
     </div>
@@ -92,7 +99,8 @@ function AnkunftsDiagramm({ fenster }: { fenster: Fenster[] }) {
     0,
   );
   const anzeige = gewaehlt ?? spitze;
-  const bis = (f: Fenster) => new Date(f.start.getTime() + INTERVALL_MIN * 60 * 1000);
+  const bis = (f: Fenster) =>
+    new Date(f.start.getTime() + INTERVALL_MIN * 60 * 1000);
   // Nur jede n-te Achsenbeschriftung, damit nichts kollidiert
   const beschriftungAlle = Math.max(1, Math.ceil(fenster.length / 6));
 
@@ -125,7 +133,9 @@ function AnkunftsDiagramm({ fenster }: { fenster: Fenster[] }) {
                 <td className="py-1 text-stone-700">
                   {uhr(f.start)}–{uhr(bis(f))}
                 </td>
-                <td className="py-1 text-right text-stone-900 tabular-nums">{f.anzahl}</td>
+                <td className="py-1 text-right text-stone-900 tabular-nums">
+                  {f.anzahl}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -157,14 +167,20 @@ function AnkunftsDiagramm({ fenster }: { fenster: Fenster[] }) {
                   className={`block w-full rounded-t ${
                     i === anzeige ? "bg-amber-900" : "bg-amber-700"
                   }`}
-                  style={{ height: `${(f.anzahl / max) * 100}%`, minHeight: f.anzahl > 0 ? 2 : 0 }}
+                  style={{
+                    height: `${(f.anzahl / max) * 100}%`,
+                    minHeight: f.anzahl > 0 ? 2 : 0,
+                  }}
                 />
               </button>
             ))}
           </div>
           <div className="flex gap-0.5 text-[10px] text-stone-500">
             {fenster.map((f, i) => (
-              <span key={f.start.getTime()} className="flex-1 overflow-visible whitespace-nowrap">
+              <span
+                key={f.start.getTime()}
+                className="flex-1 overflow-visible whitespace-nowrap"
+              >
                 {i % beschriftungAlle === 0 ? uhr(f.start) : ""}
               </span>
             ))}
@@ -177,7 +193,11 @@ function AnkunftsDiagramm({ fenster }: { fenster: Fenster[] }) {
 
 function StatistikSeiteInhalt() {
   const { aktivesEvent } = useEvents();
-  const gaeste = useGaeste(aktivesEvent?.id);
+  const alleEintraege = useGaeste(aktivesEvent?.id);
+  const gaeste = useMemo(
+    () => alleEintraege.filter((gast) => !istAngefragt(gast)),
+    [alleEintraege],
+  );
 
   const daten = useMemo(() => {
     const gaesteListe = gaeste.filter((g) => g.quelle !== "mitglied");
@@ -186,7 +206,8 @@ function StatistikSeiteInhalt() {
     const summeMitglieder = summiere(mitglieder);
     const ankuenfte = sammleAnkuenfte(gaeste);
     const proAccount = new Map<string, number>();
-    for (const a of ankuenfte) proAccount.set(a.von, (proAccount.get(a.von) ?? 0) + 1);
+    for (const a of ankuenfte)
+      proAccount.set(a.von, (proAccount.get(a.von) ?? 0) + 1);
     return {
       summeGaeste,
       summeMitglieder,
@@ -198,7 +219,8 @@ function StatistikSeiteInhalt() {
 
   const abendkasse = aktivesEvent?.abendkasse ?? 0;
   const { summeGaeste, summeMitglieder } = daten;
-  const imSaal = summeGaeste.eingecheckt + summeMitglieder.eingecheckt + abendkasse;
+  const imSaal =
+    summeGaeste.eingecheckt + summeMitglieder.eingecheckt + abendkasse;
   const gaesteNoShow = summeGaeste.gesamt - summeGaeste.eingecheckt;
   const quote = (teil: number, ganz: number) =>
     ganz > 0 ? `${Math.round((teil / ganz) * 100)} %` : "–";
@@ -226,7 +248,11 @@ function StatistikSeiteInhalt() {
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
         <div className="grid grid-cols-2 gap-3">
-          <Kachel wert={imSaal} label="Personen im Saal" zusatz="inkl. Abendkasse" />
+          <Kachel
+            wert={imSaal}
+            label="Personen im Saal"
+            zusatz="inkl. Abendkasse"
+          />
           <Kachel wert={abendkasse} label="Abendkasse" />
           <Kachel
             wert={`${summeGaeste.eingecheckt}/${summeGaeste.gesamt}`}

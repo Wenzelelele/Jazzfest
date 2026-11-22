@@ -84,22 +84,32 @@ Vercel baut und deployed automatisch bei jedem Push auf den verbundenen
 Branch. Die Firestore-Regeln sind davon unabhängig - Schritt 3 oben muss
 separat gemacht werden (einmalig, bzw. erneut bei Änderungen an den Regeln).
 
-## Benutzer und Admin
+## Benutzer und Rollen
+
+Drei Rollen (Kasse/Anfrage unterscheidet nur die Oberfläche, bewusst ohne
+harte Absicherung):
+
+| Rolle | Darf |
+|---|---|
+| **Kasse** (Standard für neue Accounts) | Listen sehen, suchen, einchecken, Abendkasse zählen, Event wählen |
+| **Anfrage** | Gäste anfragen (Formular oder Text-Import), eigene offene Anfragen bearbeiten/zurückziehen, prüfen wer schon auf der Liste steht |
+| **Admin** (Freigabe) | Alles - inkl. Anfragen freigeben/ablehnen („Alle freigeben“), Gäste direkt anlegen, Events, Import, Export, Statistik, Benutzer & Rollen |
+
+Angefragte Gäste stehen erst nach der Freigabe auf der Einlassliste - vorher
+sieht die Kasse sie nicht, und sie zählen weder in Zählern, Statistik noch
+Export.
 
 - **Benutzer anlegen**: Firebase Console → Authentication → Nutzer →
-  „Nutzer hinzufügen“. Alle Accounts sehen dieselben Events und dürfen Gäste
-  anlegen, bearbeiten, löschen, einchecken und die Abendkasse zählen.
-- **Admin** darf zusätzlich Events verwalten (anlegen, bearbeiten, löschen,
-  Mitglieder übernehmen), Mitglieder importieren, exportieren und die
-  Statistik sehen.
-- **Admin machen**: Firebase Console → Firestore → Collection `admins` →
-  Dokument anlegen, **Dokument-ID = UID** des Accounts (steht unter
-  Authentication → Nutzer, und die App zeigt sie Nicht-Admins auf der Seite
-  „Event wählen“ an). Felder sind egal, z. B. `email` als Notiz.
-- Durchgesetzt wird das in [firestore.rules](firestore.rules), nicht nur in
-  der Oberfläche. Ausnahme: Export und Statistik sind nur in der Oberfläche
-  ausgeblendet - lesen darf jeder Account alle Gäste (sonst ginge kein
-  Check-in).
+  „Nutzer hinzufügen“. Der Account erscheint nach dem ersten Login in der
+  App unter Menü → **Benutzer & Rollen** (als Kasse) und bekommt dort seine
+  Rolle.
+- **Erster Admin**: Firebase Console → Firestore → Collection `admins` (auf
+  oberster Ebene, neben `events`) → Dokument anlegen, **Dokument-ID = UID**
+  des Accounts (die App zeigt sie auf der Seite „Event wählen“). Weitere
+  Admins vergibt man danach in der App.
+- Die Firestore-Regeln sperren Events anlegen/ändern/löschen, Mitglieder-
+  Import und Rollenvergabe für Nicht-Admins. Alles andere ist reine
+  Oberfläche.
 
 ## Events und Ablauf am Veranstaltungstag
 
@@ -144,7 +154,9 @@ Event-Verwaltung einmalig zur Übernahme in ein Event an.
 - `src/lib/events.ts` - Events, Abendkasse, Mitglieder-Übernahme, Migration
 - `src/lib/gaeste.ts` - Datenmodell und Firestore-Lese-/Schreibfunktionen
 - `src/lib/suche.ts` / `src/lib/export.ts` - Such-Normalisierung, CSV-Export
-- `src/contexts/` - Auth, aktives Event (pro Gerät), Meldungsleiste
+- `src/contexts/` - Auth + Rolle, aktives Event (pro Gerät), Meldungsleiste
+- `src/lib/rollen.ts`, `src/app/(protected)/benutzer/`, `.../anfragen/` -
+  Rollen, Benutzerverwaltung, Anfragen & Freigabe
 - `src/lib/pdfImport.ts` / `src/lib/csvImport.ts` / `src/lib/gaesteImport.ts` -
   Mitgliederlisten-Import (Parsing getrennt nach Format, Vorschau/Dubletten/
   Batch-Write gemeinsam)

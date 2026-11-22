@@ -7,10 +7,12 @@ rules_version = '2';
 // - Admins (Dokument admins/{uid} existiert) dürfen zusätzlich Events
 //   verwalten und Mitglieder (quelle "mitglied") importieren/übernehmen.
 //
-// Admin wird man ausschließlich über die Firebase Console: Collection
+// Den ersten Admin legt man in der Firebase Console an: Collection
 // "admins", Dokument-ID = UID des Accounts (die App zeigt die eigene UID auf
-// der Event-Seite an). Bewusst keine E-Mail-Adresse hier im Code - das
-// Repository ist öffentlich.
+// der Event-Seite an). Weitere Rollen vergibt ein Admin in der App. Bewusst
+// keine E-Mail-Adresse hier im Code - das Repository ist öffentlich.
+// Die Rollen Kasse/Anfrage (einchecken vs. Gäste anfragen) unterscheidet
+// nur die Oberfläche.
 service cloud.firestore {
   match /databases/{database}/documents {
     function angemeldet() {
@@ -22,11 +24,27 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Jeder darf nur prüfen, ob er selbst Admin ist. Schreiben nur über die
-    // Console.
+    // Jeder darf prüfen, ob er selbst Admin ist; Admins sehen alle und
+    // vergeben die Rolle über die Benutzer-Seite der App. Den allerersten
+    // Admin legt man in der Console an.
     match /admins/{uid} {
-      allow read: if angemeldet() && request.auth.uid == uid;
-      allow write: if false;
+      allow read: if angemeldet() && (request.auth.uid == uid || istAdmin());
+      allow write: if istAdmin();
+    }
+
+    // Selbstregistrierung (E-Mail, zuletzt aktiv) für die Benutzer-Seite.
+    // Die Rolle (Kasse/Anfrage) setzt nur ein Admin - die Abgrenzung
+    // Kasse/Anfrage ist bewusst nur in der Oberfläche, nicht hier.
+    match /nutzer/{uid} {
+      allow read: if angemeldet();
+      allow create: if angemeldet() && request.auth.uid == uid &&
+        !('rolle' in request.resource.data);
+      allow update: if istAdmin() || (
+        angemeldet() && request.auth.uid == uid &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['rolle'])
+      );
+      allow delete: if istAdmin();
     }
 
     match /events/{eventId} {

@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { erstelleGast } from "@/lib/gaeste";
+import { NurRolle } from "@/components/NurAdmin";
 import {
+  eintraegeAusGruppe,
   markiereMoeglicheDubletten,
   parseGaesteText,
   type TextGruppe,
@@ -17,8 +20,13 @@ type Status =
   | { schritt: "vorschau" }
   | { schritt: "angelegt"; anzahl: number };
 
-export default function TextImportSeite() {
+function TextImportInhalt() {
   const { aktivesEvent } = useEvents();
+  const { rolle } = useAuth();
+  // Anfrage-Accounts erzeugen Anfragen statt fester Listeneinträge.
+  const alsAnfrage = rolle === "anfrage";
+  const zurueckZiel = alsAnfrage ? "/anfragen" : "/";
+  const [einzeln, setEinzeln] = useState(false);
   const { beobachte, zeigeFehler } = useMeldung();
   const eventId = aktivesEvent?.id;
   const gaeste = useGaeste(eventId);
@@ -45,7 +53,11 @@ export default function TextImportSeite() {
     );
   }
 
-  function begleitungNameAendern(gruppeId: string, index: number, wert: string) {
+  function begleitungNameAendern(
+    gruppeId: string,
+    index: number,
+    wert: string,
+  ) {
     setGruppen((bisherige) =>
       bisherige.map((gruppe) => {
         if (gruppe.id !== gruppeId) return gruppe;
@@ -90,20 +102,18 @@ export default function TextImportSeite() {
       zeigeFehler("Kein Event ausgewählt.");
       return;
     }
-    const ausgewaehlte = gruppen.filter(
-      (gruppe) => gruppe.ausgewaehlt && gruppe.hauptgast.trim().length > 0,
-    );
-    for (const gruppe of ausgewaehlte) {
+    for (const eintrag of eintraege) {
       beobachte(
         erstelleGast(eventId, {
-          name: gruppe.hauptgast.trim(),
-          begleitungNamen: gruppe.begleitungNamen,
+          name: eintrag.name,
+          begleitungNamen: eintrag.begleitungNamen,
           quelle: "manuell",
+          status: alsAnfrage ? "angefragt" : "freigegeben",
         }),
-        `${gruppe.hauptgast.trim()} konnte nicht angelegt werden.`,
+        `${eintrag.name} konnte nicht angelegt werden.`,
       );
     }
-    setStatus({ schritt: "angelegt", anzahl: ausgewaehlte.length });
+    setStatus({ schritt: "angelegt", anzahl: eintraege.length });
   }
 
   function zurueckZumEinfuegen() {
@@ -113,12 +123,19 @@ export default function TextImportSeite() {
   }
 
   const anzahlAusgewaehlt = gruppen.filter((g) => g.ausgewaehlt).length;
+  const eintraege = gruppen
+    .filter((gruppe) => gruppe.ausgewaehlt)
+    .flatMap((gruppe) => eintraegeAusGruppe(gruppe, einzeln));
+  const anzahlPersonen = eintraege.reduce(
+    (summe, e) => summe + 1 + e.begleitungNamen.length,
+    0,
+  );
 
   return (
     <div className="flex flex-1 flex-col">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-stone-200 bg-white/95 p-4 backdrop-blur">
         <Link
-          href="/"
+          href={zurueckZiel}
           className="min-h-12 rounded-md px-2 text-sm text-stone-500 hover:bg-stone-100"
         >
           ← Zurück
@@ -138,16 +155,21 @@ export default function TextImportSeite() {
           <div className="mx-auto max-w-lg space-y-4">
             <p className="text-sm text-stone-500">
               Text einfügen (z. B. aus WhatsApp), eine Gäste-Gruppe pro Zeile.
-              Format: <span className="font-mono">Gäste von Peter, Hans,
-              Jürgen, Frank +1</span> - der erste Name wird zum Hauptgast, die
-              übrigen zu Begleitpersonen, „+1&rdquo; fügt eine unbenannte
-              Begleitperson hinzu.
+              Format:{" "}
+              <span className="font-mono">
+                Gäste von Peter, Hans, Jürgen, Frank +1
+              </span>{" "}
+              - der erste Name wird zum Hauptgast, die übrigen zu
+              Begleitpersonen, „+1&rdquo; fügt eine unbenannte Begleitperson
+              hinzu.
             </p>
             <textarea
               value={text}
               onChange={(event) => setText(event.target.value)}
               rows={8}
-              placeholder={"Gäste von Peter, Hans, Jürgen, Frank +1\nGäste von Maria, Tom +2"}
+              placeholder={
+                "Gäste von Peter, Hans, Jürgen, Frank +1\nGäste von Maria, Tom +2"
+              }
               className="w-full rounded-md border border-stone-300 bg-white p-3 text-sm text-stone-900 outline-none focus:border-stone-500"
             />
             <button
@@ -167,8 +189,44 @@ export default function TextImportSeite() {
               <span className="font-semibold text-stone-900">
                 {anzahlAusgewaehlt}
               </span>{" "}
-              von {gruppen.length} Gruppen ausgewählt
+              von {gruppen.length} Gruppen ausgewählt · {eintraege.length}{" "}
+              {eintraege.length === 1 ? "Eintrag" : "Einträge"},{" "}
+              {anzahlPersonen} Personen
             </p>
+
+            <div className="flex gap-2" role="group" aria-label="Wie anlegen?">
+              {[
+                {
+                  wert: false,
+                  label: "Gruppe = 1 Eintrag",
+                  info: "Erster Name + Begleitung",
+                },
+                {
+                  wert: true,
+                  label: "Jede Person einzeln",
+                  info: "Eigener Eintrag pro Name",
+                },
+              ].map((option) => (
+                <button
+                  key={String(option.wert)}
+                  type="button"
+                  onClick={() => setEinzeln(option.wert)}
+                  aria-pressed={einzeln === option.wert}
+                  className={`flex min-h-12 flex-1 flex-col items-center justify-center rounded-md px-2 text-sm leading-tight ${
+                    einzeln === option.wert
+                      ? "bg-stone-900 text-stone-50"
+                      : "border border-stone-300 text-stone-600"
+                  }`}
+                >
+                  <span className="font-medium">{option.label}</span>
+                  <span
+                    className={`text-xs ${einzeln === option.wert ? "text-stone-300" : "text-stone-400"}`}
+                  >
+                    {option.info}
+                  </span>
+                </button>
+              ))}
+            </div>
 
             {gruppen.length === 0 && (
               <p className="text-sm text-stone-500">
@@ -236,7 +294,9 @@ export default function TextImportSeite() {
                           />
                           <button
                             type="button"
-                            onClick={() => begleitungEntfernen(gruppe.id, index)}
+                            onClick={() =>
+                              begleitungEntfernen(gruppe.id, index)
+                            }
                             aria-label={`Begleitung ${index + 1} entfernen`}
                             className="min-h-10 min-w-10 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
                           >
@@ -269,10 +329,12 @@ export default function TextImportSeite() {
               <button
                 type="button"
                 onClick={handleUebernehmen}
-                disabled={anzahlAusgewaehlt === 0}
+                disabled={eintraege.length === 0}
                 className="min-h-12 flex-1 rounded-md bg-stone-900 font-medium text-stone-50 disabled:opacity-60"
               >
-                {`${anzahlAusgewaehlt} Gäste anlegen`}
+                {alsAnfrage
+                  ? `${eintraege.length} ${eintraege.length === 1 ? "Anfrage" : "Anfragen"} senden`
+                  : `${eintraege.length} ${eintraege.length === 1 ? "Eintrag" : "Einträge"} anlegen`}
               </button>
             </div>
           </div>
@@ -282,7 +344,9 @@ export default function TextImportSeite() {
           <div className="mx-auto max-w-md space-y-4 pt-8 text-center">
             <p className="text-stone-900">
               {status.anzahl}{" "}
-              {status.anzahl === 1 ? "Gast wurde" : "Gäste wurden"} angelegt.
+              {alsAnfrage
+                ? `${status.anzahl === 1 ? "Anfrage wurde" : "Anfragen wurden"} gesendet - sie erscheinen nach der Freigabe durch einen Admin auf der Liste.`
+                : `${status.anzahl === 1 ? "Eintrag wurde" : "Einträge wurden"} angelegt.`}
             </p>
             <div className="flex gap-3">
               <button
@@ -293,15 +357,23 @@ export default function TextImportSeite() {
                 Weiteren Text einfügen
               </button>
               <Link
-                href="/"
+                href={zurueckZiel}
                 className="flex min-h-12 flex-1 items-center justify-center rounded-md bg-stone-900 font-medium text-stone-50"
               >
-                Zur Gästeliste
+                {alsAnfrage ? "Zu den Anfragen" : "Zur Gästeliste"}
               </Link>
             </div>
           </div>
         )}
       </main>
     </div>
+  );
+}
+
+export default function TextImportSeite() {
+  return (
+    <NurRolle erlaubt={["anfrage", "admin"]}>
+      <TextImportInhalt />
+    </NurRolle>
   );
 }

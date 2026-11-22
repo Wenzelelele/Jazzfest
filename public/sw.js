@@ -32,6 +32,8 @@ const SEITEN = [
   "/statistik",
   "/import",
   "/text-import",
+  "/anfragen",
+  "/benutzer",
 ];
 const WEITERE_DATEIEN = [
   "/manifest.webmanifest",

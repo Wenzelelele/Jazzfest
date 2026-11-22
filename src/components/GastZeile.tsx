@@ -113,7 +113,8 @@ export function GastZeile({
   suchBegriffe = [],
 }: {
   gast: GastMitId;
-  onBearbeiten: (gast: GastMitId) => void;
+  // Ohne onBearbeiten (Rolle Kasse) gibt es keinen Bearbeiten-Stift.
+  onBearbeiten?: (gast: GastMitId) => void;
   suchBegriffe?: readonly string[];
 }) {
   const { aktivesEvent } = useEvents();
@@ -172,9 +173,7 @@ export function GastZeile({
           <span className="flex-1">
             <span className="block text-stone-900">{gast.name}</span>
             {gast.notiz && (
-              <span className="block text-xs text-stone-500">
-                {gast.notiz}
-              </span>
+              <span className="block text-xs text-stone-500">{gast.notiz}</span>
             )}
           </span>
           {hatBegleitung && (
@@ -184,14 +183,16 @@ export function GastZeile({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => onBearbeiten(gast)}
-          aria-label={`${gast.name} bearbeiten`}
-          className="min-h-12 min-w-12 shrink-0 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-        >
-          ✎
-        </button>
+        {onBearbeiten && (
+          <button
+            type="button"
+            onClick={() => onBearbeiten(gast)}
+            aria-label={`${gast.name} bearbeiten`}
+            className="min-h-12 min-w-12 shrink-0 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+          >
+            ✎
+          </button>
+        )}
 
         <CheckInButton
           checkedIn={gast.checkedIn}

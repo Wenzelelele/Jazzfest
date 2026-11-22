@@ -1,6 +1,10 @@
 import type { Timestamp } from "firebase/firestore";
 import type { JazzEventMitId } from "@/lib/events";
-import { sortiereBegleitungKeys, type GastMitId } from "@/lib/gaeste";
+import {
+  istAngefragt,
+  sortiereBegleitungKeys,
+  type GastMitId,
+} from "@/lib/gaeste";
 
 // CSV-Export eines Events: eine Zeile pro Person (Hauptgast und jede
 // Begleitperson einzeln), damit sich in Excel direkt filtern/zählen lässt.
@@ -18,7 +22,10 @@ function uhrzeit(zeitpunkt: Timestamp | null | undefined): string {
   return zeitpunkt.toDate().toLocaleString("de-DE");
 }
 
-export function baueCsv(event: JazzEventMitId, gaeste: readonly GastMitId[]): string {
+export function baueCsv(
+  event: JazzEventMitId,
+  gaeste: readonly GastMitId[],
+): string {
   const kopf = [
     "Liste",
     "Name",
@@ -31,7 +38,8 @@ export function baueCsv(event: JazzEventMitId, gaeste: readonly GastMitId[]): st
   ];
   const zeilen: (string | number)[][] = [kopf];
 
-  for (const gast of gaeste) {
+  // Offene Anfragen stehen (noch) nicht auf der Liste.
+  for (const gast of gaeste.filter((g) => !istAngefragt(g))) {
     const liste = gast.quelle === "mitglied" ? "JIM Mitglied" : "Gästeliste";
     zeilen.push([
       liste,
@@ -60,7 +68,16 @@ export function baueCsv(event: JazzEventMitId, gaeste: readonly GastMitId[]): st
 
   const abendkasse = event.abendkasse ?? 0;
   if (abendkasse > 0) {
-    zeilen.push(["Abendkasse", `${abendkasse} Personen`, "", "", "", "ja", "", ""]);
+    zeilen.push([
+      "Abendkasse",
+      `${abendkasse} Personen`,
+      "",
+      "",
+      "",
+      "ja",
+      "",
+      "",
+    ]);
   }
 
   return "﻿" + zeilen.map((zeile) => zeile.map(zelle).join(";")).join("\r\n");
@@ -78,7 +95,10 @@ export function dateinameFuer(event: JazzEventMitId): string {
   return `jazzfest-${event.datum}-${name || "event"}.csv`;
 }
 
-export function ladeCsvHerunter(event: JazzEventMitId, gaeste: readonly GastMitId[]) {
+export function ladeCsvHerunter(
+  event: JazzEventMitId,
+  gaeste: readonly GastMitId[],
+) {
   const blob = new Blob([baueCsv(event, gaeste)], {
     type: "text/csv;charset=utf-8",
   });

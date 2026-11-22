@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +12,13 @@ import { useGaeste } from "@/hooks/useGaeste";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { abendkasseAendern, formatiereDatum } from "@/lib/events";
 import { ladeCsvHerunter } from "@/lib/export";
-import { gastPasstZurSuche, istVollstaendigDa, summiere } from "@/lib/gaeste";
+import {
+  gastPasstZurSuche,
+  istAngefragt,
+  istVollstaendigDa,
+  summiere,
+} from "@/lib/gaeste";
+import { rollenLabel } from "@/lib/rollen";
 import { suchBegriffe } from "@/lib/suche";
 import { GastZeile } from "@/components/GastZeile";
 import { GastFormular } from "@/components/GastFormular";
@@ -31,7 +38,7 @@ type FormularStatus =
   { offen: false } | { offen: true; gast?: GastMitId; vorgabeName?: string };
 
 function Menue({ onExport }: { onExport: () => void }) {
-  const { istAdmin, user } = useAuth();
+  const { istAdmin, rolle, user } = useAuth();
   const [offen, setOffen] = useState(false);
   const eintrag =
     "flex min-h-12 w-full items-center px-4 text-left text-sm text-stone-700 hover:bg-stone-100";
@@ -58,11 +65,17 @@ function Menue({ onExport }: { onExport: () => void }) {
             <Link href="/events" className={eintrag}>
               {istAdmin ? "Events verwalten" : "Event wählen"}
             </Link>
-            <Link href="/text-import" className={eintrag}>
-              Gäste aus Text einfügen
-            </Link>
             {istAdmin && (
               <>
+                <Link href="/anfragen" className={eintrag}>
+                  Anfragen freigeben
+                </Link>
+                <Link href="/text-import" className={eintrag}>
+                  Gäste aus Text einfügen
+                </Link>
+                <Link href="/benutzer" className={eintrag}>
+                  Benutzer & Rollen
+                </Link>
                 <Link href="/statistik" className={eintrag}>
                   Statistik
                 </Link>
@@ -82,8 +95,7 @@ function Menue({ onExport }: { onExport: () => void }) {
               </>
             )}
             <p className="truncate border-t border-stone-200 px-4 pt-2 text-xs text-stone-400">
-              {user?.email}
-              {istAdmin ? " · Admin" : ""}
+              {user?.email} · {rollenLabel(rolle)}
             </p>
             <button
               type="button"
@@ -136,16 +148,29 @@ function Abendkasse({ eventId, anzahl }: { eventId: string; anzahl: number }) {
 
 export default function Home() {
   const { aktivesEvent, geladen } = useEvents();
-  const { istAdmin } = useAuth();
+  const { istAdmin, rolle, rolleGeladen } = useAuth();
+  const router = useRouter();
   const eventId = aktivesEvent?.id;
-  const gaeste = useGaeste(eventId);
+  const alleEintraege = useGaeste(eventId);
+  // Angefragte Gäste stehen noch nicht auf der Einlassliste.
+  const gaeste = useMemo(
+    () => alleEintraege.filter((gast) => !istAngefragt(gast)),
+    [alleEintraege],
+  );
+  const offeneAnfragen = alleEintraege.length - gaeste.length;
+
+  // Anfrage-Accounts arbeiten auf der Anfragen-Seite, nicht am Einlass.
+  const istAnfrage = rolleGeladen && rolle === "anfrage";
+  useEffect(() => {
+    if (istAnfrage) router.replace("/anfragen");
+  }, [istAnfrage, router]);
   const [tab, setTab] = useState<TabWert>("gaeste");
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<FilterWert>("alle");
   const [formular, setFormular] = useState<FormularStatus>({ offen: false });
 
   // Bildschirm am Einlass wach halten, solange die Liste offen ist.
-  useWakeLock(true);
+  useWakeLock(!istAnfrage);
 
   const begriffe = useMemo(() => suchBegriffe(suche), [suche]);
 
@@ -199,6 +224,8 @@ export default function Home() {
     },
     { wert: "abendkasse", label: "Abendkasse", zahl: String(abendkasse) },
   ];
+
+  if (istAnfrage) return null;
 
   if (geladen && !aktivesEvent) {
     return (
@@ -281,6 +308,20 @@ export default function Home() {
           ))}
         </div>
 
+        {istAdmin && offeneAnfragen > 0 && (
+          <Link
+            href="/anfragen"
+            className="flex min-h-12 items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 text-sm text-amber-900"
+          >
+            <span>
+              {offeneAnfragen}{" "}
+              {offeneAnfragen === 1 ? "Anfrage wartet" : "Anfragen warten"} auf
+              Freigabe
+            </span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
+
         {tab !== "abendkasse" && (
           <>
             <input
@@ -325,7 +366,11 @@ export default function Home() {
                 key={gast.id}
                 gast={gast}
                 suchBegriffe={begriffe}
-                onBearbeiten={(gast) => setFormular({ offen: true, gast })}
+                onBearbeiten={
+                  istAdmin
+                    ? (gast) => setFormular({ offen: true, gast })
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -351,7 +396,7 @@ export default function Home() {
             </button>
           )}
 
-          {suche.trim().length > 0 && (
+          {istAdmin && suche.trim().length > 0 && (
             <button
               type="button"
               onClick={() =>
@@ -365,7 +410,7 @@ export default function Home() {
         </main>
       )}
 
-      {tab === "gaeste" && (
+      {istAdmin && tab === "gaeste" && (
         <div className="fixed right-5 bottom-5 z-10">
           <button
             type="button"

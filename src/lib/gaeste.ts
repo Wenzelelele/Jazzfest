@@ -15,6 +15,12 @@ import { namePasst } from "@/lib/suche";
 
 export type Quelle = "mitglied" | "manuell";
 
+// "angefragt": von einem Anfrage-Account eingetragen, wartet auf Freigabe
+// durch einen Admin - erscheint noch nicht in der Einlassliste und zählt
+// nicht mit. Fehlt das Feld (ältere Einträge, Mitglieder), gilt der Gast
+// als freigegeben.
+export type GastStatus = "angefragt" | "freigegeben";
+
 export interface Begleitperson {
   checkedIn: boolean;
   checkedInAt: Timestamp | null;
@@ -39,6 +45,14 @@ export interface Gast {
   checkedInBy?: string | null;
   begleitung: Begleitung;
   erstelltAm: Timestamp;
+  status?: GastStatus;
+  angefragtVon?: string | null;
+  freigegebenVon?: string | null;
+  freigegebenAm?: Timestamp | null;
+}
+
+export function istAngefragt(gast: Gast): boolean {
+  return gast.status === "angefragt";
 }
 
 export interface GastMitId extends Gast {
@@ -85,6 +99,7 @@ export interface NeuerGastInput {
   anzahlBegleitung?: number;
   begleitungNamen?: string[];
   quelle?: Quelle;
+  status?: GastStatus;
 }
 
 export async function erstelleGast(eventId: string, input: NeuerGastInput) {
@@ -101,7 +116,43 @@ export async function erstelleGast(eventId: string, input: NeuerGastInput) {
     checkedInBy: null,
     begleitung: baueBegleitung(namen),
     erstelltAm: serverTimestamp(),
+    status: input.status ?? "freigegeben",
+    angefragtVon: input.status === "angefragt" ? aktuellerNutzer() : null,
   });
+}
+
+// Für "Rückgängig" direkt nach einer Freigabe.
+export async function freigabeZuruecknehmen(
+  eventId: string,
+  gastIds: string[],
+) {
+  for (let start = 0; start < gastIds.length; start += LOESCH_BATCH_GROESSE) {
+    const batch = writeBatch(db);
+    for (const gastId of gastIds.slice(start, start + LOESCH_BATCH_GROESSE)) {
+      batch.update(gastDocRef(eventId, gastId), {
+        status: "angefragt",
+        freigegebenVon: null,
+        freigegebenAm: null,
+      });
+    }
+    await batch.commit();
+  }
+}
+
+// Gibt angefragte Gäste frei - danach stehen sie fest auf der Liste.
+export async function gaesteFreigeben(eventId: string, gastIds: string[]) {
+  const von = aktuellerNutzer();
+  for (let start = 0; start < gastIds.length; start += LOESCH_BATCH_GROESSE) {
+    const batch = writeBatch(db);
+    for (const gastId of gastIds.slice(start, start + LOESCH_BATCH_GROESSE)) {
+      batch.update(gastDocRef(eventId, gastId), {
+        status: "freigegeben",
+        freigegebenVon: von,
+        freigegebenAm: serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
 }
 
 export interface GastBearbeitenInput {

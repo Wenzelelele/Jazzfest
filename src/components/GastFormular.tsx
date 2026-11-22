@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import {
@@ -20,9 +21,17 @@ interface GastFormularProps {
   onClose: () => void;
 }
 
-export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) {
+export function GastFormular({
+  gast,
+  vorgabeName,
+  onClose,
+}: GastFormularProps) {
   const { aktivesEvent } = useEvents();
+  const { rolle } = useAuth();
   const { beobachte, zeigeInfo } = useMeldung();
+  // Anfrage-Accounts legen keine festen Gäste an, sondern Anfragen, die ein
+  // Admin erst freigeben muss.
+  const alsAnfrage = rolle === "anfrage";
   const eventId = aktivesEvent?.id;
   const bearbeitenModus = gast !== undefined;
   const [name, setName] = useState(gast?.name ?? vorgabeName ?? "");
@@ -83,10 +92,15 @@ export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) 
           notiz: notiz.trim(),
           begleitungNamen,
           quelle: "manuell",
+          status: alsAnfrage ? "angefragt" : "freigegeben",
         }),
         `${nameGetrimmt} konnte nicht angelegt werden.`,
       );
-      zeigeInfo(`${nameGetrimmt} hinzugefügt`);
+      zeigeInfo(
+        alsAnfrage
+          ? `Anfrage für ${nameGetrimmt} gesendet`
+          : `${nameGetrimmt} hinzugefügt`,
+      );
     }
     onClose();
   }
@@ -113,7 +127,13 @@ export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) 
             id="gast-formular-titel"
             className="font-display text-lg font-semibold text-stone-900"
           >
-            {bearbeitenModus ? "Gast bearbeiten" : "Gast hinzufügen"}
+            {bearbeitenModus
+              ? alsAnfrage
+                ? "Anfrage bearbeiten"
+                : "Gast bearbeiten"
+              : alsAnfrage
+                ? "Gast anfragen"
+                : "Gast hinzufügen"}
           </h2>
           <button
             type="button"
@@ -212,7 +232,7 @@ export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) 
             type="submit"
             className="min-h-12 w-full rounded-md bg-stone-900 px-5 font-medium text-stone-50 hover:bg-stone-800"
           >
-            Speichern
+            {!bearbeitenModus && alsAnfrage ? "Anfrage senden" : "Speichern"}
           </button>
         </form>
 
@@ -247,7 +267,7 @@ export function GastFormular({ gast, vorgabeName, onClose }: GastFormularProps) 
                 onClick={() => setLoeschenBestaetigen(true)}
                 className="min-h-12 w-full rounded-md border border-red-300 text-sm text-red-700"
               >
-                Gast löschen
+                {alsAnfrage ? "Anfrage zurückziehen" : "Gast löschen"}
               </button>
             )}
           </div>

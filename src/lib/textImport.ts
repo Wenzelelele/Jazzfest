@@ -33,7 +33,10 @@ const HEADER_MUSTER =
   /^(gästeliste|gäste?\s+von|gast\s+von|guests?\s+of)\s*[:\-]?\s*/i;
 const PLUS_ANZAHL_MUSTER = /^(.*?)\s*\+\s*(\d+)\s*$/;
 
-function trenneePlusAnzahl(text: string): { name: string; zusatzAnzahl: number } {
+function trenneePlusAnzahl(text: string): {
+  name: string;
+  zusatzAnzahl: number;
+} {
   const treffer = text.match(PLUS_ANZAHL_MUSTER);
   if (treffer) {
     return { name: treffer[1].trim(), zusatzAnzahl: Number(treffer[2]) };
@@ -122,4 +125,35 @@ export function markiereMoeglicheDubletten(
       gruppe.hauptgast.trim().toLowerCase(),
     ),
   }));
+}
+
+export interface GastEintrag {
+  name: string;
+  begleitungNamen: string[];
+}
+
+// Wandelt eine Gruppe in die anzulegenden Einträge um.
+// - zusammen (Standard): ein Eintrag, Hauptgast + Begleitpersonen
+// - einzeln: jede benannte Person wird ein eigener Eintrag; unbenannte
+//   "+N"-Personen hängen als Begleitung an der Person davor (eine
+//   unbenannte Person allein wäre am Einlass nicht auffindbar)
+export function eintraegeAusGruppe(
+  gruppe: TextGruppe,
+  einzeln: boolean,
+): GastEintrag[] {
+  const hauptgast = gruppe.hauptgast.trim();
+  if (!hauptgast) return [];
+  if (!einzeln) {
+    return [{ name: hauptgast, begleitungNamen: gruppe.begleitungNamen }];
+  }
+  const eintraege: GastEintrag[] = [{ name: hauptgast, begleitungNamen: [] }];
+  for (const name of gruppe.begleitungNamen) {
+    const getrimmt = name.trim();
+    if (getrimmt) {
+      eintraege.push({ name: getrimmt, begleitungNamen: [] });
+    } else {
+      eintraege[eintraege.length - 1].begleitungNamen.push("");
+    }
+  }
+  return eintraege;
 }

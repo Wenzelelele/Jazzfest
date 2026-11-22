@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { getDocs } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { rollenLabel } from "@/lib/rollen";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import {
@@ -310,20 +311,20 @@ function EventKarte({
 // Console zum Admin gemacht werden kann (Collection "admins", Dokument-ID =
 // UID).
 function AdminHinweis() {
-  const { user } = useAuth();
+  const { user, rolle } = useAuth();
   const { zeigeInfo } = useMeldung();
   if (!user) return null;
   return (
     <details className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
       <summary className="cursor-pointer text-stone-700">
-        Angemeldet als {user.email} (kein Admin)
+        Angemeldet als {user.email} · {rollenLabel(rolle)}
       </summary>
       <div className="mt-3 space-y-2">
         <p>
-          Events verwalten, Mitglieder importieren, Export und Statistik sind
-          Admins vorbehalten. Admin wird ein Account in der Firebase Console:
-          Firestore → Collection <span className="font-mono">admins</span> →
-          Dokument mit dieser ID anlegen:
+          Rollen vergibt ein Admin in der App unter „Benutzer & Rollen“. Gibt es
+          noch gar keinen Admin, in der Firebase Console unter Firestore →
+          Collection <span className="font-mono">admins</span> ein Dokument mit
+          dieser ID anlegen:
         </p>
         <button
           type="button"
