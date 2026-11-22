@@ -8,10 +8,20 @@
 // in der App tippt man nur "kasse".
 export const BENUTZERNAME_DOMAIN = "jazzfest.invalid";
 
+// Umlaute werden umgeschrieben ("gästeliste" -> "gaesteliste"), weil
+// E-Mail-Adressen mit Umlaut bei Firebase nicht zuverlässig funktionieren.
+// Der Account in der Console heißt also gaesteliste@jazzfest.invalid, beim
+// Login darf man trotzdem "Gästeliste" tippen.
 export function zuLoginEmail(eingabe: string): string {
   const getrimmt = eingabe.trim().toLowerCase();
   if (getrimmt.includes("@")) return getrimmt;
-  return `${getrimmt}@${BENUTZERNAME_DOMAIN}`;
+  const benutzername = getrimmt
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/\s+/g, "");
+  return `${benutzername}@${BENUTZERNAME_DOMAIN}`;
 }
 
 // Anzeige: Benutzernamen-Accounts ohne Schein-Domain, echte E-Mails
