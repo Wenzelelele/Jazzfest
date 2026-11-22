@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { zuLoginEmail } from "@/lib/benutzername";
 
 function mapAuthError(err: unknown): string {
   const code = (err as { code?: string } | null)?.code;
@@ -12,9 +13,9 @@ function mapAuthError(err: unknown): string {
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "E-Mail oder Passwort ist falsch.";
+      return "Benutzername oder Passwort ist falsch.";
     case "auth/invalid-email":
-      return "Diese E-Mail-Adresse ist ungültig.";
+      return "Dieser Benutzername ist ungültig (bitte ohne Leer- und Sonderzeichen).";
     case "auth/too-many-requests":
       return "Zu viele Versuche. Bitte kurz warten und erneut probieren.";
     case "auth/network-request-failed":
@@ -43,7 +44,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await signInWithEmailAndPassword(auth, zuLoginEmail(email), password);
       router.replace("/");
     } catch (err) {
       setError(mapAuthError(err));
@@ -71,12 +72,18 @@ export default function LoginPage() {
 
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm text-stone-600">
-            E-Mail
+            Benutzername
           </label>
+          {/* Benutzername ("kasse") oder vollständige E-Mail - siehe
+              lib/benutzername.ts */}
           <input
             id="email"
-            type="email"
+            type="text"
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="z. B. kasse"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}

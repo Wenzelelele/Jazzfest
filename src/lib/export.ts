@@ -5,6 +5,7 @@ import {
   sortiereBegleitungKeys,
   type GastMitId,
 } from "@/lib/gaeste";
+import { anzeigeName } from "@/lib/benutzername";
 
 // CSV-Export eines Events: eine Zeile pro Person (Hauptgast und jede
 // Begleitperson einzeln), damit sich in Excel direkt filtern/zählen lässt.
@@ -49,7 +50,7 @@ export function baueCsv(
       gast.notiz,
       gast.checkedIn ? "ja" : "nein",
       uhrzeit(gast.checkedInAt),
-      gast.checkedInBy ?? "",
+      gast.checkedInBy ? anzeigeName(gast.checkedInBy) : "",
     ]);
     for (const key of sortiereBegleitungKeys(gast.begleitung)) {
       const person = gast.begleitung[key];
@@ -61,7 +62,7 @@ export function baueCsv(
         "",
         person.checkedIn ? "ja" : "nein",
         uhrzeit(person.checkedInAt),
-        person.checkedInBy ?? "",
+        person.checkedInBy ? anzeigeName(person.checkedInBy) : "",
       ]);
     }
   }

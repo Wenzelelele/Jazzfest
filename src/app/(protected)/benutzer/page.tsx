@@ -15,6 +15,7 @@ import {
   type Rolle,
 } from "@/lib/rollen";
 import { NurAdmin } from "@/components/NurAdmin";
+import { BENUTZERNAME_DOMAIN, anzeigeName } from "@/lib/benutzername";
 
 function BenutzerInhalt() {
   const { user } = useAuth();
@@ -55,17 +56,19 @@ function BenutzerInhalt() {
               ? "anfrage"
               : "kasse") as Rolle,
         }))
-        .sort((a, b) => (a.email ?? "").localeCompare(b.email ?? "", "de")),
+        .sort((a, b) =>
+          anzeigeName(a.email).localeCompare(anzeigeName(b.email), "de"),
+        ),
     [nutzer, adminIds],
   );
 
   function aendern(eintrag: NutzerMitId, rolle: Rolle) {
     beobachte(
       rolleSetzen(eintrag.id, eintrag.email, rolle),
-      `Rolle für ${eintrag.email ?? eintrag.id} konnte nicht gespeichert werden.`,
+      `Rolle für ${anzeigeName(eintrag.email)} konnte nicht gespeichert werden.`,
     );
     zeigeInfo(
-      `${eintrag.email ?? "Benutzer"} ist jetzt ${ROLLEN.find((r) => r.wert === rolle)?.label}`,
+      `${anzeigeName(eintrag.email)} ist jetzt ${ROLLEN.find((r) => r.wert === rolle)?.label}`,
     );
   }
 
@@ -87,8 +90,12 @@ function BenutzerInhalt() {
         <div className="space-y-2 rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
           <p>
             Neue Accounts in der Firebase Console unter Authentication → Nutzer
-            anlegen. Sie erscheinen hier nach ihrem ersten Login und sind
-            zunächst <strong>Kasse</strong>.
+            anlegen. Ohne persönliche E-Mail: als E-Mail{" "}
+            <span className="font-mono">name@{BENUTZERNAME_DOMAIN}</span>{" "}
+            eintragen (z. B.{" "}
+            <span className="font-mono">kasse@{BENUTZERNAME_DOMAIN}</span>) -
+            angemeldet wird dann nur mit „kasse“. Accounts erscheinen hier nach
+            ihrem ersten Login und sind zunächst <strong>Kasse</strong>.
           </p>
           <ul className="space-y-1 text-xs text-stone-500">
             {ROLLEN.map((r) => (
@@ -106,7 +113,7 @@ function BenutzerInhalt() {
             return (
               <li key={eintrag.id} className="space-y-2 p-4">
                 <p className="truncate text-stone-900">
-                  {eintrag.email ?? eintrag.id}
+                  {anzeigeName(eintrag.email)}
                   {ichSelbst && (
                     <span className="text-xs text-stone-500"> (du)</span>
                   )}

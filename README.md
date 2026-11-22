@@ -103,6 +103,13 @@ Export.
   „Nutzer hinzufügen“. Der Account erscheint nach dem ersten Login in der
   App unter Menü → **Benutzer & Rollen** (als Kasse) und bekommt dort seine
   Rolle.
+- **Ohne persönliche E-Mail** (empfohlen für Geräte-/Funktions-Accounts):
+  als E-Mail `name@jazzfest.invalid` eintragen, z. B.
+  `kasse@jazzfest.invalid`. In der App meldet man sich dann nur mit dem
+  Benutzernamen `kasse` an, angezeigt wird ebenfalls nur `kasse`. Die Endung
+  `.invalid` ist reserviert und kann nie eine echte Adresse sein (siehe
+  `src/lib/benutzername.ts`). Accounts mit echter E-Mail funktionieren
+  weiterhin - dann im Login die volle Adresse eintippen.
 - **Erster Admin**: Firebase Console → Firestore → Collection `admins` (auf
   oberster Ebene, neben `events`) → Dokument anlegen, **Dokument-ID = UID**
   des Accounts (die App zeigt sie auf der Seite „Event wählen“). Weitere

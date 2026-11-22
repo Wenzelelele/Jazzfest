@@ -8,6 +8,7 @@ import { useEvents } from "@/contexts/EventContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { formatiereDatum } from "@/lib/events";
 import { istAngefragt, summiere, type GastMitId } from "@/lib/gaeste";
+import { anzeigeName } from "@/lib/benutzername";
 
 const INTERVALL_MIN = 15;
 
@@ -27,7 +28,7 @@ function sammleAnkuenfte(gaeste: readonly GastMitId[]): Ankunft[] {
     // (null) - die zählen in den Summen, aber noch nicht im Zeitverlauf.
     if (!checkedIn || !zeitpunkt || typeof zeitpunkt.toDate !== "function")
       return;
-    ergebnis.push({ zeit: zeitpunkt.toDate(), von: von || "unbekannt" });
+    ergebnis.push({ zeit: zeitpunkt.toDate(), von: anzeigeName(von) });
   };
   for (const gast of gaeste) {
     hinzu(gast.checkedIn, gast.checkedInAt, gast.checkedInBy);

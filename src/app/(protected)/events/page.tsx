@@ -20,6 +20,7 @@ import {
 } from "@/lib/events";
 import { ladeCsvHerunter } from "@/lib/export";
 import { gaesteCollectionRef, type Gast, type GastMitId } from "@/lib/gaeste";
+import { anzeigeName } from "@/lib/benutzername";
 
 const eingabe =
   "min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500";
@@ -317,7 +318,7 @@ function AdminHinweis() {
   return (
     <details className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
       <summary className="cursor-pointer text-stone-700">
-        Angemeldet als {user.email} · {rollenLabel(rolle)}
+        Angemeldet als {anzeigeName(user.email)} · {rollenLabel(rolle)}
       </summary>
       <div className="mt-3 space-y-2">
         <p>

@@ -24,6 +24,7 @@ import { GastZeile } from "@/components/GastZeile";
 import { GastFormular } from "@/components/GastFormular";
 import { VerbindungsIndikator } from "@/components/VerbindungsIndikator";
 import type { GastMitId } from "@/lib/gaeste";
+import { anzeigeName } from "@/lib/benutzername";
 
 type FilterWert = "alle" | "nicht-da" | "schon-da";
 type TabWert = "gaeste" | "mitglieder" | "abendkasse";
@@ -95,7 +96,7 @@ function Menue({ onExport }: { onExport: () => void }) {
               </>
             )}
             <p className="truncate border-t border-stone-200 px-4 pt-2 text-xs text-stone-400">
-              {user?.email} · {rollenLabel(rolle)}
+              {anzeigeName(user?.email)} · {rollenLabel(rolle)}
             </p>
             <button
               type="button"

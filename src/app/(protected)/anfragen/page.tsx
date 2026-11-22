@@ -23,6 +23,7 @@ import { suchBegriffe } from "@/lib/suche";
 import { GastFormular } from "@/components/GastFormular";
 import { NurRolle } from "@/components/NurAdmin";
 import { VerbindungsIndikator } from "@/components/VerbindungsIndikator";
+import { anzeigeName } from "@/lib/benutzername";
 
 type FormularStatus =
   { offen: false } | { offen: true; gast?: GastMitId; vorgabeName?: string };
@@ -69,7 +70,7 @@ function AnfrageZeile({
           )}
           {gast.notiz && <p className="text-xs text-stone-500">{gast.notiz}</p>}
           <p className="text-xs text-stone-400">
-            angefragt von {gast.angefragtVon ?? "unbekannt"}
+            angefragt von {anzeigeName(gast.angefragtVon)}
           </p>
         </div>
         {darfBearbeiten && (
@@ -228,9 +229,9 @@ function AnfragenInhalt() {
 
         {!istAdmin && (
           <p className="text-xs text-stone-500">
-            Angemeldet als {user?.email} · {rollenLabel(rolle)}. Eingetragene
-            Gäste sind zuerst nur angefragt und stehen erst nach der Freigabe
-            durch einen Admin auf der Einlassliste.{" "}
+            Angemeldet als {anzeigeName(user?.email)} · {rollenLabel(rolle)}.
+            Eingetragene Gäste sind zuerst nur angefragt und stehen erst nach
+            der Freigabe durch einen Admin auf der Einlassliste.{" "}
             <Link href="/events" className="underline">
               Event wechseln
             </Link>
