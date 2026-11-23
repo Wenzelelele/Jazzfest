@@ -10,6 +10,7 @@ import { erstelleGast } from "@/lib/gaeste";
 import { NurRolle } from "@/components/NurAdmin";
 import {
   eintraegeAusGruppe,
+  enthaeltKopfzeilen,
   markiereMoeglicheDubletten,
   parseGaesteText,
   type TextGruppe,
@@ -40,7 +41,13 @@ function TextImportInhalt() {
   const [gruppen, setGruppen] = useState<TextGruppe[]>([]);
 
   function handleParsen() {
-    const geparst = parseGaesteText(text);
+    const geparst = parseGaesteText(text).map((gruppe) =>
+      // Nichts als Name erkannt: zeigen (wegen "ignoriert"), aber abwählen
+      gruppe.hauptgast ? gruppe : { ...gruppe, ausgewaehlt: false },
+    );
+    // Freitext (WhatsApp) -> jeder Name ein eigener Gast; mit Kopfzeilen
+    // ("Gästeliste Fahd") sind Gruppen gemeint.
+    setEinzeln(!enthaeltKopfzeilen(geparst));
     setGruppen(markiereMoeglicheDubletten(geparst, bestehendeNamenLower));
     setStatus({ schritt: "vorschau" });
   }
@@ -153,22 +160,30 @@ function TextImportInhalt() {
       <main className="flex-1 p-4">
         {status.schritt === "einfuegen" && (
           <div className="mx-auto max-w-lg space-y-4">
-            <p className="text-sm text-stone-500">
-              Text einfügen (z. B. aus WhatsApp), eine Gäste-Gruppe pro Zeile.
-              Format:{" "}
-              <span className="font-mono">
-                Gäste von Peter, Hans, Jürgen, Frank +1
-              </span>{" "}
-              - der erste Name wird zum Hauptgast, die übrigen zu
-              Begleitpersonen, „+1&rdquo; fügt eine unbenannte Begleitperson
-              hinzu.
-            </p>
+            <div className="space-y-2 text-sm text-stone-500">
+              <p>
+                WhatsApp-Nachricht einfach komplett einfügen. Begrüßung,
+                Füllsätze und Grüße am Ende werden ignoriert, nur die Namen
+                übernommen, z. B.{" "}
+                <span className="italic">
+                  „Hallo Tom, hier ein paar Namen für die Gästeliste. Thomas
+                  hauser, Elena tim, hans zimmer.&ldquo;
+                </span>
+              </p>
+              <p>
+                „+1&rdquo; oder „mit Begleitung&rdquo; hinter einem Namen fügt
+                eine unbenannte Begleitperson hinzu. Eine Zeile wie{" "}
+                <span className="font-mono">Gästeliste Fahd</span> oder{" "}
+                <span className="font-mono">Gäste von Peter</span> startet eine
+                Gruppe: Die Namen danach werden Begleitung dieser Person.
+              </p>
+            </div>
             <textarea
               value={text}
               onChange={(event) => setText(event.target.value)}
               rows={8}
               placeholder={
-                "Gäste von Peter, Hans, Jürgen, Frank +1\nGäste von Maria, Tom +2"
+                "Hallo Tom, hier ein paar Namen für die Gästeliste. Thomas Hauser +1, Elena Tim, Hans Zimmer. LG Max"
               }
               className="w-full rounded-md border border-stone-300 bg-white p-3 text-sm text-stone-900 outline-none focus:border-stone-500"
             />
@@ -256,6 +271,19 @@ function TextImportInhalt() {
                       <p className="text-xs text-stone-400">
                         „{gruppe.rohtext}&rdquo;
                       </p>
+                      {gruppe.ignoriert.length > 0 && (
+                        <p className="text-xs text-stone-500">
+                          Ignoriert (kein Name):{" "}
+                          {gruppe.ignoriert.map((teil, i) => (
+                            <span key={i}>
+                              {i > 0 && ", "}
+                              <span className="line-through decoration-stone-300">
+                                {teil}
+                              </span>
+                            </span>
+                          ))}
+                        </p>
+                      )}
                       <input
                         type="text"
                         value={gruppe.hauptgast}
