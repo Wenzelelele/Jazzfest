@@ -181,7 +181,7 @@ function TextImportInhalt() {
               onChange={(event) => setText(event.target.value)}
               rows={8}
               placeholder={
-                "Hallo Tom, hier ein paar Namen für die Gästeliste. Thomas Hauser +1, Elena Tim, Hans Zimmer. LG Max"
+                "Hallo Tom, hier ein paar Namen für die Gästeliste. Anna Becker +1, Jonas Weber, Lena Schmitt. LG Max"
               }
               className="w-full rounded-md border border-stone-300 bg-white p-3 text-sm text-stone-900 outline-none focus:border-stone-500"
             />
