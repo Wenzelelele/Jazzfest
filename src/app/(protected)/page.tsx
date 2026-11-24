@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -70,6 +69,12 @@ function Menue({ onExport }: { onExport: () => void }) {
               <>
                 <Link href="/anfragen" className={eintrag}>
                   Anfragen freigeben
+                </Link>
+                <Link href="/ansprechpartner" className={eintrag}>
+                  Gäste nach Ansprechpartner
+                </Link>
+                <Link href="/gaesteliste" className={eintrag}>
+                  Anfrage-Link (öffentlich)
                 </Link>
                 <Link href="/text-import" className={eintrag}>
                   Gäste aus Text einfügen
@@ -149,8 +154,7 @@ function Abendkasse({ eventId, anzahl }: { eventId: string; anzahl: number }) {
 
 export default function Home() {
   const { aktivesEvent, geladen } = useEvents();
-  const { istAdmin, rolle, rolleGeladen } = useAuth();
-  const router = useRouter();
+  const { istAdmin } = useAuth();
   const eventId = aktivesEvent?.id;
   const alleEintraege = useGaeste(eventId);
   // Angefragte Gäste stehen noch nicht auf der Einlassliste.
@@ -160,18 +164,13 @@ export default function Home() {
   );
   const offeneAnfragen = alleEintraege.length - gaeste.length;
 
-  // Anfrage-Accounts arbeiten auf der Anfragen-Seite, nicht am Einlass.
-  const istAnfrage = rolleGeladen && rolle === "anfrage";
-  useEffect(() => {
-    if (istAnfrage) router.replace("/anfragen");
-  }, [istAnfrage, router]);
   const [tab, setTab] = useState<TabWert>("gaeste");
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<FilterWert>("alle");
   const [formular, setFormular] = useState<FormularStatus>({ offen: false });
 
   // Bildschirm am Einlass wach halten, solange die Liste offen ist.
-  useWakeLock(!istAnfrage);
+  useWakeLock(true);
 
   const begriffe = useMemo(() => suchBegriffe(suche), [suche]);
 
@@ -225,8 +224,6 @@ export default function Home() {
     },
     { wert: "abendkasse", label: "Abendkasse", zahl: String(abendkasse) },
   ];
-
-  if (istAnfrage) return null;
 
   if (geladen && !aktivesEvent) {
     return (

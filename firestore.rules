@@ -1,6 +1,11 @@
 rules_version = '2';
 
 // Rollen:
+// - Ohne Login (öffentlicher Link /gaesteliste): Events lesen und Gäste
+//   ANFRAGEN (status "angefragt", nur genau die erwarteten Felder). Die
+//   Gästeliste selbst ist ohne Login nicht lesbar - nur einzelne Einträge
+//   per (zufälliger, nicht erratbarer) ID, damit ein Gerät den Status der
+//   eigenen Anfragen sieht.
 // - Jeder angemeldete Account (manuell in der Firebase Console angelegt, es
 //   gibt keine Registrierung) darf Events lesen, Gäste anlegen, bearbeiten,
 //   löschen, einchecken und die Abendkasse zählen.
@@ -11,8 +16,7 @@ rules_version = '2';
 // "admins", Dokument-ID = UID des Accounts (die App zeigt die eigene UID auf
 // der Event-Seite an). Weitere Rollen vergibt ein Admin in der App. Bewusst
 // keine E-Mail-Adresse hier im Code - das Repository ist öffentlich.
-// Die Rollen Kasse/Anfrage (einchecken vs. Gäste anfragen) unterscheidet
-// nur die Oberfläche.
+// Was Kasse in der App sieht (nur Einlassliste), regelt die Oberfläche.
 service cloud.firestore {
   match /databases/{database}/documents {
     function angemeldet() {
@@ -33,8 +37,7 @@ service cloud.firestore {
     }
 
     // Selbstregistrierung (E-Mail, zuletzt aktiv) für die Benutzer-Seite.
-    // Die Rolle (Kasse/Anfrage) setzt nur ein Admin - die Abgrenzung
-    // Kasse/Anfrage ist bewusst nur in der Oberfläche, nicht hier.
+    // Das Feld rolle setzt nur ein Admin.
     match /nutzer/{uid} {
       allow read: if angemeldet();
       allow create: if angemeldet() && request.auth.uid == uid &&
@@ -47,8 +50,32 @@ service cloud.firestore {
       allow delete: if istAdmin();
     }
 
+    // Anfrage über den öffentlichen Link: genau die Felder, die
+    // oeffentlicheAnfragenSenden (lib/gaeste.ts) schreibt.
+    function oeffentlicheAnfrage(eventId) {
+      let d = request.resource.data;
+      return exists(/databases/$(database)/documents/events/$(eventId)) &&
+        d.keys().hasOnly(['name', 'nameLower', 'quelle', 'notiz',
+          'checkedIn', 'checkedInAt', 'checkedInBy', 'begleitung',
+          'erstelltAm', 'status', 'angefragtVon', 'ansprechpartner']) &&
+        d.status == 'angefragt' &&
+        d.quelle == 'manuell' &&
+        d.checkedIn == false &&
+        d.checkedInAt == null &&
+        d.checkedInBy == null &&
+        d.angefragtVon == null &&
+        d.name is string && d.name.size() > 0 && d.name.size() <= 120 &&
+        d.nameLower is string && d.nameLower.size() <= 120 &&
+        d.ansprechpartner is string && d.ansprechpartner.size() > 0 &&
+        d.ansprechpartner.size() <= 120 &&
+        d.notiz is string && d.notiz.size() <= 300 &&
+        d.begleitung is map && d.begleitung.size() <= 20 &&
+        d.erstelltAm == request.time;
+    }
+
     match /events/{eventId} {
-      allow read: if angemeldet();
+      // Öffentlich: Die Anfrage-Seite zeigt die Events zur Auswahl.
+      allow read: if true;
       allow create, delete: if istAdmin();
       // Nicht-Admins dürfen am Event-Dokument nur den Abendkassen-Zähler
       // ändern.
@@ -59,11 +86,12 @@ service cloud.firestore {
       );
 
       match /gaeste/{gastId} {
-        allow read: if angemeldet();
+        allow get: if true;
+        allow list: if angemeldet();
         // Mitglieder-Einträge anlegen (Import/Übernahme) nur als Admin.
         allow create: if istAdmin() || (
           angemeldet() && request.resource.data.quelle != 'mitglied'
-        );
+        ) || oeffentlicheAnfrage(eventId);
         // Bearbeiten/Einchecken: alle, aber niemand ohne Admin-Rechte darf
         // einen Gast zum Mitglied machen (oder umgekehrt).
         allow update: if istAdmin() || (

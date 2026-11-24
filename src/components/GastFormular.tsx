@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import {
@@ -27,15 +26,16 @@ export function GastFormular({
   onClose,
 }: GastFormularProps) {
   const { aktivesEvent } = useEvents();
-  const { rolle } = useAuth();
   const { beobachte, zeigeInfo } = useMeldung();
-  // Anfrage-Accounts legen keine festen Gäste an, sondern Anfragen, die ein
-  // Admin erst freigeben muss.
-  const alsAnfrage = rolle === "anfrage";
+  // Angefragte Gäste (öffentlicher Link) bleiben beim Bearbeiten angefragt.
+  const alsAnfrage = gast?.status === "angefragt";
   const eventId = aktivesEvent?.id;
   const bearbeitenModus = gast !== undefined;
   const [name, setName] = useState(gast?.name ?? vorgabeName ?? "");
   const [notiz, setNotiz] = useState(gast?.notiz ?? "");
+  const [ansprechpartner, setAnsprechpartner] = useState(
+    gast?.ansprechpartner ?? "",
+  );
   const [begleitungNamen, setBegleitungNamen] = useState<string[]>(() => {
     if (!gast) return [];
     return sortiereBegleitungKeys(gast.begleitung).map(
@@ -82,6 +82,7 @@ export function GastFormular({
           name: nameGetrimmt,
           notiz: notiz.trim(),
           begleitungNamen,
+          ansprechpartner,
         }),
         `${nameGetrimmt} konnte nicht gespeichert werden.`,
       );
@@ -92,15 +93,12 @@ export function GastFormular({
           notiz: notiz.trim(),
           begleitungNamen,
           quelle: "manuell",
-          status: alsAnfrage ? "angefragt" : "freigegeben",
+          status: "freigegeben",
+          ansprechpartner,
         }),
         `${nameGetrimmt} konnte nicht angelegt werden.`,
       );
-      zeigeInfo(
-        alsAnfrage
-          ? `Anfrage für ${nameGetrimmt} gesendet`
-          : `${nameGetrimmt} hinzugefügt`,
-      );
+      zeigeInfo(`${nameGetrimmt} hinzugefügt`);
     }
     onClose();
   }
@@ -131,9 +129,7 @@ export function GastFormular({
               ? alsAnfrage
                 ? "Anfrage bearbeiten"
                 : "Gast bearbeiten"
-              : alsAnfrage
-                ? "Gast anfragen"
-                : "Gast hinzufügen"}
+              : "Gast hinzufügen"}
           </h2>
           <button
             type="button"
@@ -209,6 +205,25 @@ export function GastFormular({
             )}
           </div>
 
+          {gast?.quelle !== "mitglied" && (
+            <div className="space-y-1">
+              <label
+                htmlFor="gast-ansprechpartner"
+                className="text-sm text-stone-600"
+              >
+                Über wen? (Ansprechpartner, optional)
+              </label>
+              <input
+                id="gast-ansprechpartner"
+                type="text"
+                placeholder="z. B. Band, Musiker, Organisator"
+                value={ansprechpartner}
+                onChange={(event) => setAnsprechpartner(event.target.value)}
+                className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
+              />
+            </div>
+          )}
+
           <div className="space-y-1">
             <label htmlFor="gast-notiz" className="text-sm text-stone-600">
               Notiz (optional)
@@ -232,7 +247,7 @@ export function GastFormular({
             type="submit"
             className="min-h-12 w-full rounded-md bg-stone-900 px-5 font-medium text-stone-50 hover:bg-stone-800"
           >
-            {!bearbeitenModus && alsAnfrage ? "Anfrage senden" : "Speichern"}
+            Speichern
           </button>
         </form>
 
@@ -267,7 +282,7 @@ export function GastFormular({
                 onClick={() => setLoeschenBestaetigen(true)}
                 className="min-h-12 w-full rounded-md border border-red-300 text-sm text-red-700"
               >
-                {alsAnfrage ? "Anfrage zurückziehen" : "Gast löschen"}
+                {alsAnfrage ? "Anfrage löschen" : "Gast löschen"}
               </button>
             )}
           </div>

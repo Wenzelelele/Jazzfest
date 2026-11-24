@@ -16,6 +16,7 @@ export type ImportMarkierung =
   | "seitenzahl"
   | "kopf-fusszeile"
   | "spaltentitel"
+  | "kein-name"
   | "dublette";
 
 export interface ImportZeile {

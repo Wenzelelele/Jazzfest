@@ -10,14 +10,14 @@ import {
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { nutzerRegistrieren, type Nutzer, type Rolle } from "@/lib/rollen";
+import { nutzerRegistrieren, type Rolle } from "@/lib/rollen";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   rolle: Rolle;
-  // false, solange Admin-/Nutzer-Dokument noch nicht gelesen sind - damit
-  // z. B. ein Anfrage-Account nicht kurz die Kassen-Ansicht sieht.
+  // false, solange das Admin-Dokument noch nicht gelesen ist - damit
+  // Admin-Seiten nicht kurz "nicht verfügbar" anzeigen.
   rolleGeladen: boolean;
   istAdmin: boolean;
 }
@@ -26,8 +26,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 interface RollenStand {
   uid: string;
-  admin?: boolean;
-  rolle?: Rolle;
+  admin: boolean;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -54,41 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) return;
     nutzerRegistrieren(uid, email).catch(console.error);
 
-    // onSnapshot statt getDoc: Rolle liegt so auch offline aus dem Cache vor
-    // und ändert sich live, wenn ein Admin sie auf der Benutzer-Seite setzt.
-    const setze = (teil: Partial<RollenStand>) =>
-      setStand((alt) => ({ ...(alt?.uid === uid ? alt : {}), uid, ...teil }));
-
-    const ohneAdmin = onSnapshot(
+    // onSnapshot statt getDoc: liegt so auch offline aus dem Cache vor und
+    // ändert sich live, wenn ein Admin die Rolle auf der Benutzer-Seite
+    // setzt.
+    return onSnapshot(
       doc(db, "admins", uid),
-      (snapshot) => setze({ admin: snapshot.exists() }),
-      () => setze({ admin: false }),
+      (snapshot) => setStand({ uid, admin: snapshot.exists() }),
+      () => setStand({ uid, admin: false }),
     );
-    const ohneNutzer = onSnapshot(
-      doc(db, "nutzer", uid),
-      (snapshot) =>
-        setze({
-          rolle: (snapshot.data() as Nutzer | undefined)?.rolle ?? "kasse",
-        }),
-      () => setze({ rolle: "kasse" }),
-    );
-    return () => {
-      ohneAdmin();
-      ohneNutzer();
-    };
   }, [uid, email]);
 
   const aktuell = stand && stand.uid === uid ? stand : null;
   const istAdmin = aktuell?.admin === true;
-  const rolle: Rolle = istAdmin
-    ? "admin"
-    : aktuell?.rolle === "anfrage"
-      ? "anfrage"
-      : "kasse";
-  const rolleGeladen =
-    aktuell !== null &&
-    aktuell.admin !== undefined &&
-    aktuell.rolle !== undefined;
+  const rolle: Rolle = istAdmin ? "admin" : "kasse";
+  const rolleGeladen = aktuell !== null;
 
   return (
     <AuthContext.Provider

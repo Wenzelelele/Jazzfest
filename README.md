@@ -86,18 +86,25 @@ separat gemacht werden (einmalig, bzw. erneut bei Änderungen an den Regeln).
 
 ## Benutzer und Rollen
 
-Drei Rollen (Kasse/Anfrage unterscheidet nur die Oberfläche, bewusst ohne
-harte Absicherung):
-
-| Rolle | Darf |
+| Wer | Darf |
 |---|---|
+| **Ohne Login** (Link zur App bzw. `/gaesteliste`) | Event wählen, Gäste anfragen (Ansprechpartner + Namen, auch als eingefügte WhatsApp-Nachricht), Status der eigenen Anfragen sehen |
 | **Kasse** (Standard für neue Accounts) | Listen sehen, suchen, einchecken, Abendkasse zählen, Event wählen |
-| **Anfrage** | Gäste anfragen (Formular oder Text-Import), eigene offene Anfragen bearbeiten/zurückziehen, prüfen wer schon auf der Liste steht |
-| **Admin** (Freigabe) | Alles - inkl. Anfragen freigeben/ablehnen („Alle freigeben“), Gäste direkt anlegen, Events, Import, Export, Statistik, Benutzer & Rollen |
+| **Admin** (Freigabe) | Alles - inkl. Anfragen freigeben/ablehnen (einzeln, pro Ansprechpartner oder alle), Gäste direkt anlegen, Gäste nach Ansprechpartner, Events, Import, Export, Statistik, Benutzer & Rollen |
 
-Angefragte Gäste stehen erst nach der Freigabe auf der Einlassliste - vorher
-sieht die Kasse sie nicht, und sie zählen weder in Zählern, Statistik noch
-Export.
+Wer die App ohne Login öffnet, landet auf der öffentlichen Anfrage-Seite -
+es reicht also, Bands & Co. einfach den Link zu schicken. Das Team meldet
+sich dort unten über „Team-Login“ an. Jede Anfrage braucht einen
+**Ansprechpartner** (über wen kommen die Gäste?). Angefragte Gäste stehen
+erst nach der Freigabe auf der Einlassliste - vorher sieht die Kasse sie
+nicht, und sie zählen weder in Zählern, Statistik noch Export. Ohne Login
+ist die Gästeliste nicht lesbar; das Gerät sieht nur den Status der
+Anfragen, die es selbst gesendet hat (per Dokument-ID).
+
+Menü → **Gäste nach Ansprechpartner** zeigt pro Ansprechpartner, wer über
+ihn auf der Liste steht, wie viele Personen das sind und wie viele davon
+schon da sind. Auf der Anfragen-Seite steht bei jeder Gruppe, wie viele
+Personen über diesen Ansprechpartner schon freigegeben sind.
 
 - **Benutzer anlegen**: Firebase Console → Authentication → Nutzer →
   „Nutzer hinzufügen“. Der Account erscheint nach dem ersten Login in der
@@ -157,6 +164,8 @@ Event-Verwaltung einmalig zur Übernahme in ein Event an.
 - `src/app/(protected)/` - Hauptansicht, Formular, Import (nur eingeloggt
   erreichbar)
 - `src/app/login/` - Login-Seite
+- `src/app/gaesteliste/` - öffentliche Anfrage-Seite (ohne Login)
+- `src/app/(protected)/ansprechpartner/` - Gäste gruppiert nach Ansprechpartner
 - `src/app/(protected)/events/`, `.../statistik/` - Event-Verwaltung, Statistik
 - `src/lib/events.ts` - Events, Abendkasse, Mitglieder-Übernahme, Migration
 - `src/lib/gaeste.ts` - Datenmodell und Firestore-Lese-/Schreibfunktionen
@@ -164,7 +173,7 @@ Event-Verwaltung einmalig zur Übernahme in ein Event an.
 - `src/contexts/` - Auth + Rolle, aktives Event (pro Gerät), Meldungsleiste
 - `src/lib/rollen.ts`, `src/app/(protected)/benutzer/`, `.../anfragen/` -
   Rollen, Benutzerverwaltung, Anfragen & Freigabe
-- `src/lib/pdfImport.ts` / `src/lib/csvImport.ts` / `src/lib/gaesteImport.ts` -
+- `src/lib/pdfImport.ts` + `src/lib/pdfNamen.ts` / `src/lib/csvImport.ts` / `src/lib/gaesteImport.ts` -
   Mitgliederlisten-Import (Parsing getrennt nach Format, Vorschau/Dubletten/
   Batch-Write gemeinsam)
 - `firestore.rules` - Sicherheitsregeln (nur authentifizierte Nutzer dürfen
@@ -233,10 +242,13 @@ schreibt und niemals das gesamte `begleitung`-Objekt überschreibt.
 
 ## Bekannte Einschränkungen
 
-- Der PDF-Import erkennt Kopf-/Fußzeilen heuristisch (Wiederholung über
-  mehrere Seiten). Ist die Seitenzahl direkt in den Fußzeilentext eingebettet
-  (z. B. „…Fax mobil SEITE 1"), wird die Zeile eventuell nicht automatisch
-  abgewählt - vor dem Import einmal durch die Vorschau scrollen.
+- Der PDF-Import erkennt Tabellenspalten an ihren x-Positionen und übernimmt
+  nur die Namensspalten ganz links (Buchstaben, keine Ziffern/@) als
+  „Nachname, Vorname“ - Adresse, Telefon und E-Mail werden nicht
+  importiert. Zeilen, die nicht wie ein Name aussehen („Stand …“,
+  Kopf-/Fußzeilen), werden abgewählt. Ohne erkennbare Tabelle werden ganze
+  Zeilen ohne Wörter mit Ziffern/@ übernommen - vor dem Import einmal durch
+  die Vorschau scrollen.
 - Beim CSV-Import wird ohne erkennbare Spaltenüberschrift („Nachname"/
   „Vorname" oder „Name") die erste Spalte als Name angenommen - auch hier
   lohnt ein Blick in die Vorschau vor dem Bestätigen.

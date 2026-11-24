@@ -14,8 +14,11 @@ export default function ProtectedLayout({
   const router = useRouter();
 
   useEffect(() => {
+    // Ohne Login landet man auf der öffentlichen Anfrage-Seite - so reicht
+    // es, Bands & Co. einfach den Link zur App zu schicken. Das Team kommt
+    // von dort über "Team-Login" zur Anmeldung.
     if (!loading && !user) {
-      router.replace("/login");
+      router.replace("/gaesteliste");
     }
   }, [loading, user, router]);
 
@@ -28,7 +31,7 @@ export default function ProtectedLayout({
   }
 
   if (!user) {
-    // Weiterleitung zu /login läuft bereits - hier nichts rendern, damit
+    // Weiterleitung zu /gaesteliste läuft bereits - hier nichts rendern, damit
     // geschützte Inhalte nicht kurz aufblitzen.
     return null;
   }

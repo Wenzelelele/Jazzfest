@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
 import { erstelleGast } from "@/lib/gaeste";
-import { NurRolle } from "@/components/NurAdmin";
+import { NurAdmin } from "@/components/NurAdmin";
 import {
   eintraegeAusGruppe,
   enthaeltKopfzeilen,
@@ -23,10 +22,8 @@ type Status =
 
 function TextImportInhalt() {
   const { aktivesEvent } = useEvents();
-  const { rolle } = useAuth();
-  // Anfrage-Accounts erzeugen Anfragen statt fester Listeneinträge.
-  const alsAnfrage = rolle === "anfrage";
-  const zurueckZiel = alsAnfrage ? "/anfragen" : "/";
+  const zurueckZiel = "/";
+  const [ansprechpartner, setAnsprechpartner] = useState("");
   const [einzeln, setEinzeln] = useState(false);
   const { beobachte, zeigeFehler } = useMeldung();
   const eventId = aktivesEvent?.id;
@@ -115,7 +112,8 @@ function TextImportInhalt() {
           name: eintrag.name,
           begleitungNamen: eintrag.begleitungNamen,
           quelle: "manuell",
-          status: alsAnfrage ? "angefragt" : "freigegeben",
+          status: "freigegeben",
+          ansprechpartner,
         }),
         `${eintrag.name} konnte nicht angelegt werden.`,
       );
@@ -208,6 +206,23 @@ function TextImportInhalt() {
               {eintraege.length === 1 ? "Eintrag" : "Einträge"},{" "}
               {anzahlPersonen} Personen
             </p>
+
+            <div className="space-y-1">
+              <label
+                htmlFor="text-ansprechpartner"
+                className="text-sm text-stone-600"
+              >
+                Über wen kommen diese Gäste? (Ansprechpartner, optional)
+              </label>
+              <input
+                id="text-ansprechpartner"
+                type="text"
+                placeholder="z. B. Band, Musiker, Organisator"
+                value={ansprechpartner}
+                onChange={(event) => setAnsprechpartner(event.target.value)}
+                className="min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500"
+              />
+            </div>
 
             <div className="flex gap-2" role="group" aria-label="Wie anlegen?">
               {[
@@ -360,9 +375,7 @@ function TextImportInhalt() {
                 disabled={eintraege.length === 0}
                 className="min-h-12 flex-1 rounded-md bg-stone-900 font-medium text-stone-50 disabled:opacity-60"
               >
-                {alsAnfrage
-                  ? `${eintraege.length} ${eintraege.length === 1 ? "Anfrage" : "Anfragen"} senden`
-                  : `${eintraege.length} ${eintraege.length === 1 ? "Eintrag" : "Einträge"} anlegen`}
+                {`${eintraege.length} ${eintraege.length === 1 ? "Eintrag" : "Einträge"} anlegen`}
               </button>
             </div>
           </div>
@@ -372,9 +385,8 @@ function TextImportInhalt() {
           <div className="mx-auto max-w-md space-y-4 pt-8 text-center">
             <p className="text-stone-900">
               {status.anzahl}{" "}
-              {alsAnfrage
-                ? `${status.anzahl === 1 ? "Anfrage wurde" : "Anfragen wurden"} gesendet - sie erscheinen nach der Freigabe durch einen Admin auf der Liste.`
-                : `${status.anzahl === 1 ? "Eintrag wurde" : "Einträge wurden"} angelegt.`}
+              {status.anzahl === 1 ? "Eintrag wurde" : "Einträge wurden"}{" "}
+              angelegt.
             </p>
             <div className="flex gap-3">
               <button
@@ -388,7 +400,7 @@ function TextImportInhalt() {
                 href={zurueckZiel}
                 className="flex min-h-12 flex-1 items-center justify-center rounded-md bg-stone-900 font-medium text-stone-50"
               >
-                {alsAnfrage ? "Zu den Anfragen" : "Zur Gästeliste"}
+                Zur Gästeliste
               </Link>
             </div>
           </div>
@@ -400,8 +412,8 @@ function TextImportInhalt() {
 
 export default function TextImportSeite() {
   return (
-    <NurRolle erlaubt={["anfrage", "admin"]}>
+    <NurAdmin>
       <TextImportInhalt />
-    </NurRolle>
+    </NurAdmin>
   );
 }

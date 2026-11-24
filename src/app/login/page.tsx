@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -67,7 +68,7 @@ export default function LoginPage() {
           <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900">
             Jazzfest Gästeliste
           </h1>
-          <p className="text-sm text-stone-500">Anmeldung am Einlass</p>
+          <p className="text-sm text-stone-500">Team-Login (Kasse / Admin)</p>
         </div>
 
         <div className="space-y-1">
@@ -119,6 +120,13 @@ export default function LoginPage() {
         >
           {submitting ? "Anmelden…" : "Anmelden"}
         </button>
+
+        <p className="text-center text-xs text-stone-500">
+          Gäste anfragen geht ohne Login:{" "}
+          <Link href="/gaesteliste" className="underline">
+            zur Anfrage-Seite
+          </Link>
+        </p>
       </form>
     </div>
   );

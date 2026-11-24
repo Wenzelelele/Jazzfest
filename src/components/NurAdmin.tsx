@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { rollenLabel, type Rolle } from "@/lib/rollen";
 
-// Blendet Seiten für Rollen aus, die sie nicht nutzen sollen. Bei Events
+// Blendet Seiten für Rollen aus, die sie nicht nutzen sollen (Kasse sieht
+// nur die Einlassliste). Bei Events
 // und Mitglieder-Import sperren zusätzlich die Firestore-Regeln, sonst ist
 // das reine Oberfläche.
 export function NurRolle({

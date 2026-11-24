@@ -19,6 +19,7 @@ const MARKIERUNG_LABEL: Record<ImportMarkierung, string> = {
   seitenzahl: "Seitenzahl",
   "kopf-fusszeile": "Kopf-/Fußzeile",
   spaltentitel: "Spaltentitel",
+  "kein-name": "Kein Name",
   dublette: "Bereits vorhanden",
 };
 

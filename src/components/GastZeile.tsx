@@ -172,8 +172,15 @@ export function GastZeile({
           )}
           <span className="flex-1">
             <span className="block text-stone-900">{gast.name}</span>
-            {gast.notiz && (
-              <span className="block text-xs text-stone-500">{gast.notiz}</span>
+            {(gast.ansprechpartner || gast.notiz) && (
+              <span className="block text-xs text-stone-500">
+                {[
+                  gast.ansprechpartner && `über ${gast.ansprechpartner}`,
+                  gast.notiz,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
             )}
           </span>
           {hatBegleitung && (

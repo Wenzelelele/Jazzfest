@@ -8,27 +8,23 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// Drei Benutzerklassen (nur Oberfläche, bewusst keine harte Absicherung -
-// siehe README):
-// - kasse:   Listen sehen, einchecken, Abendkasse zählen
-// - anfrage: Gäste eintragen - landen erst als Anfrage, nicht auf der Liste
-// - admin:   alles, inkl. Anfragen freigeben, Events, Import, Benutzer
+// Zwei Benutzerklassen mit Login (nur Oberfläche, bewusst keine harte
+// Absicherung - siehe README):
+// - kasse: Listen sehen, einchecken, Abendkasse zählen
+// - admin: alles, inkl. Anfragen freigeben, Events, Import, Benutzer
+// Gäste anfragen kann jeder ohne Login über den öffentlichen Link
+// (/gaesteliste).
 //
-// Admin ist zusätzlich an das Dokument admins/{uid} gebunden, weil die
-// Firestore-Regeln Events/Import daran festmachen. Kasse/Anfrage stehen nur
-// in nutzer/{uid}.rolle. Neue Accounts sind automatisch Kasse.
-export type Rolle = "kasse" | "anfrage" | "admin";
+// Admin ist an das Dokument admins/{uid} gebunden, weil die Firestore-Regeln
+// Events/Import daran festmachen. Neue Accounts sind automatisch Kasse.
+// (Ein älteres rolle-Feld "anfrage" in nutzer/{uid} zählt als Kasse.)
+export type Rolle = "kasse" | "admin";
 
 export const ROLLEN: { wert: Rolle; label: string; beschreibung: string }[] = [
   {
     wert: "kasse",
     label: "Kasse",
     beschreibung: "Listen sehen, einchecken, Abendkasse",
-  },
-  {
-    wert: "anfrage",
-    label: "Anfrage",
-    beschreibung: "Gäste anfragen, Freigabe durch Admin",
   },
   {
     wert: "admin",
@@ -43,7 +39,7 @@ export function rollenLabel(rolle: Rolle): string {
 
 export interface Nutzer {
   email: string | null;
-  rolle?: Rolle;
+  rolle?: Rolle | "anfrage";
   zuletztAktiv?: Timestamp | null;
 }
 

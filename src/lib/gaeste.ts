@@ -11,13 +11,13 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { namePasst } from "@/lib/suche";
+import { namePasst, normalisiere } from "@/lib/suche";
 
 export type Quelle = "mitglied" | "manuell";
 
-// "angefragt": von einem Anfrage-Account eingetragen, wartet auf Freigabe
-// durch einen Admin - erscheint noch nicht in der Einlassliste und zählt
-// nicht mit. Fehlt das Feld (ältere Einträge, Mitglieder), gilt der Gast
+// "angefragt": über den öffentlichen Anfrage-Link (/gaesteliste)
+// eingetragen, wartet auf Freigabe durch einen Admin - erscheint noch nicht
+// in der Einlassliste und zählt nicht mit. Fehlt das Feld (ältere Einträge, Mitglieder), gilt der Gast
 // als freigegeben.
 export type GastStatus = "angefragt" | "freigegeben";
 
@@ -49,6 +49,8 @@ export interface Gast {
   angefragtVon?: string | null;
   freigegebenVon?: string | null;
   freigegebenAm?: Timestamp | null;
+  // Über wen der Gast auf die Liste kommt (Band, Musiker, Veranstalter...)
+  ansprechpartner?: string;
 }
 
 export function istAngefragt(gast: Gast): boolean {
@@ -100,13 +102,16 @@ export interface NeuerGastInput {
   begleitungNamen?: string[];
   quelle?: Quelle;
   status?: GastStatus;
+  ansprechpartner?: string;
 }
 
-export async function erstelleGast(eventId: string, input: NeuerGastInput) {
+// Felder eines neuen Gast-Dokuments - auch die Firestore-Regeln für
+// öffentliche Anfragen prüfen genau diese Feldliste.
+function neuesGastDokument(input: NeuerGastInput, angefragtVon: string | null) {
   const namen =
     input.begleitungNamen ??
     Array<string>(input.anzahlBegleitung ?? 0).fill("");
-  return addDoc(gaesteCollectionRef(eventId), {
+  return {
     name: input.name,
     nameLower: nameLowerVon(input.name),
     quelle: input.quelle ?? "manuell",
@@ -117,8 +122,53 @@ export async function erstelleGast(eventId: string, input: NeuerGastInput) {
     begleitung: baueBegleitung(namen),
     erstelltAm: serverTimestamp(),
     status: input.status ?? "freigegeben",
-    angefragtVon: input.status === "angefragt" ? aktuellerNutzer() : null,
-  });
+    angefragtVon,
+    ansprechpartner: (input.ansprechpartner ?? "").trim(),
+  };
+}
+
+export async function erstelleGast(eventId: string, input: NeuerGastInput) {
+  return addDoc(
+    gaesteCollectionRef(eventId),
+    neuesGastDokument(
+      input,
+      input.status === "angefragt" ? aktuellerNutzer() : null,
+    ),
+  );
+}
+
+// Anfragen über den öffentlichen Link (ohne Login). Die IDs werden vorab
+// lokal vergeben, damit das Gerät sich merken kann, was es angefragt hat,
+// und später den Status (offen/freigegeben/abgelehnt) dieser Einträge
+// abfragen darf - die Regeln erlauben ohne Login nur das Lesen einzelner
+// Dokumente per ID, nicht die ganze Liste.
+export function oeffentlicheAnfragenSenden(
+  eventId: string,
+  eintraege: { name: string; begleitungNamen: string[] }[],
+  ansprechpartner: string,
+  notiz: string,
+): { ids: string[]; gesendet: Promise<void> } {
+  const batch = writeBatch(db);
+  const ids: string[] = [];
+  for (const eintrag of eintraege) {
+    const ref = doc(gaesteCollectionRef(eventId));
+    ids.push(ref.id);
+    batch.set(
+      ref,
+      neuesGastDokument(
+        {
+          name: eintrag.name,
+          begleitungNamen: eintrag.begleitungNamen,
+          notiz,
+          quelle: "manuell",
+          status: "angefragt",
+          ansprechpartner,
+        },
+        null,
+      ),
+    );
+  }
+  return { ids, gesendet: batch.commit() };
 }
 
 // Für "Rückgängig" direkt nach einer Freigabe.
@@ -159,6 +209,7 @@ export interface GastBearbeitenInput {
   name: string;
   notiz: string;
   begleitungNamen: string[];
+  ansprechpartner: string;
 }
 
 // Begleitung-Keys bleiben immer als "1".."n" durchgehend - beim Bearbeiten
@@ -176,6 +227,7 @@ export async function aktualisiereGast(
     name: input.name,
     nameLower: nameLowerVon(input.name),
     notiz: input.notiz,
+    ansprechpartner: input.ansprechpartner.trim(),
   };
 
   const maxSchluessel = Math.max(alteAnzahl, neueAnzahl);
@@ -252,6 +304,17 @@ export async function checkInBegleitung(
   });
 }
 
+// "mit Anna, Ben, +1" - Kurzbeschreibung der Begleitung für Listen.
+export function begleitungText(gast: Gast): string {
+  const keys = sortiereBegleitungKeys(gast.begleitung);
+  if (keys.length === 0) return "";
+  const namen = keys.map((key) => gast.begleitung[key].name).filter(Boolean);
+  const unbenannt = keys.length - namen.length;
+  const teile = [...namen];
+  if (unbenannt > 0) teile.push(`+${unbenannt}`);
+  return `mit ${teile.join(", ")}`;
+}
+
 export function gesamtPersonen(gast: Gast): number {
   return 1 + Object.keys(gast.begleitung).length;
 }
@@ -294,4 +357,55 @@ export function summiere(gaeste: readonly Gast[]) {
     eingecheckt += eingecheckePersonen(gast);
   }
   return { gesamt, eingecheckt };
+}
+
+export interface AnsprechpartnerGruppe {
+  schluessel: string;
+  name: string; // Schreibweise des ersten Eintrags, "" = ohne Ansprechpartner
+  gaeste: GastMitId[];
+  freigegeben: { eintraege: number; personen: number; da: number };
+  angefragt: { eintraege: number; personen: number };
+}
+
+// Gruppiert Gäste (ohne JIM-Mitglieder) danach, über wen sie auf die Liste
+// kommen. Groß-/Kleinschreibung und Umlaut-Schreibweisen zählen nicht als
+// verschiedene Ansprechpartner ("Band X" = "band x").
+export function gruppiereNachAnsprechpartner(
+  gaeste: readonly GastMitId[],
+): AnsprechpartnerGruppe[] {
+  const gruppen = new Map<string, AnsprechpartnerGruppe>();
+  for (const gast of gaeste) {
+    if (gast.quelle === "mitglied") continue;
+    const name = (gast.ansprechpartner ?? "").trim();
+    const schluessel = ansprechpartnerSchluessel(name);
+    let gruppe = gruppen.get(schluessel);
+    if (!gruppe) {
+      gruppe = {
+        schluessel,
+        name,
+        gaeste: [],
+        freigegeben: { eintraege: 0, personen: 0, da: 0 },
+        angefragt: { eintraege: 0, personen: 0 },
+      };
+      gruppen.set(schluessel, gruppe);
+    }
+    gruppe.gaeste.push(gast);
+    if (istAngefragt(gast)) {
+      gruppe.angefragt.eintraege++;
+      gruppe.angefragt.personen += gesamtPersonen(gast);
+    } else {
+      gruppe.freigegeben.eintraege++;
+      gruppe.freigegeben.personen += gesamtPersonen(gast);
+      gruppe.freigegeben.da += eingecheckePersonen(gast);
+    }
+  }
+  return [...gruppen.values()].sort((a, b) => {
+    if (!a.name) return 1;
+    if (!b.name) return -1;
+    return a.name.localeCompare(b.name, "de");
+  });
+}
+
+export function ansprechpartnerSchluessel(name: string | undefined): string {
+  return normalisiere((name ?? "").trim()).replace(/\s+/g, " ");
 }

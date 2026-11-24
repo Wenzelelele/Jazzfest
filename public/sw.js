@@ -27,12 +27,14 @@ const TIMEOUT_MS = 2500;
 // geöffnet hat.
 const SEITEN = [
   "/",
+  "/gaesteliste",
   "/login",
   "/events",
   "/statistik",
   "/import",
   "/text-import",
   "/anfragen",
+  "/ansprechpartner",
   "/benutzer",
 ];
 const WEITERE_DATEIEN = [

@@ -43,18 +43,14 @@ function BenutzerInhalt() {
     };
   }, [zeigeFehler]);
 
-  // Maßgeblich für Admin ist admins/{uid} (daran hängen die Regeln), für
-  // Kasse/Anfrage das Feld rolle.
+  // Maßgeblich für Admin ist admins/{uid} (daran hängen die Regeln), alle
+  // anderen sind Kasse.
   const liste = useMemo(
     () =>
       nutzer
         .map((n) => ({
           ...n,
-          effektiv: (adminIds.has(n.id)
-            ? "admin"
-            : n.rolle === "anfrage"
-              ? "anfrage"
-              : "kasse") as Rolle,
+          effektiv: (adminIds.has(n.id) ? "admin" : "kasse") as Rolle,
         }))
         .sort((a, b) =>
           anzeigeName(a.email).localeCompare(anzeigeName(b.email), "de"),
@@ -95,7 +91,13 @@ function BenutzerInhalt() {
             eintragen (z. B.{" "}
             <span className="font-mono">kasse@{BENUTZERNAME_DOMAIN}</span>) -
             angemeldet wird dann nur mit „kasse“. Accounts erscheinen hier nach
-            ihrem ersten Login und sind zunächst <strong>Kasse</strong>.
+            ihrem ersten Login und sind zunächst <strong>Kasse</strong>. Für
+            Gäste-Anfragen braucht es keinen Account - dafür gibt es den
+            öffentlichen Link{" "}
+            <Link href="/gaesteliste" className="underline">
+              /gaesteliste
+            </Link>
+            .
           </p>
           <ul className="space-y-1 text-xs text-stone-500">
             {ROLLEN.map((r) => (
