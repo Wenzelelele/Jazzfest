@@ -401,7 +401,7 @@ export default function GaestelisteAnfrageSeite() {
                 rows={6}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder={"Thomas Hauser +1\nElena Tim\nHans Zimmer"}
+                placeholder={"Anna Becker +1\nJonas Weber\nLena Schmitt"}
                 className="w-full rounded-md border border-stone-300 bg-stone-50 p-3 text-stone-900 outline-none focus:border-stone-500"
               />
             </div>
