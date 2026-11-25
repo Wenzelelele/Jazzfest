@@ -9,6 +9,7 @@ import {
   ROLLEN,
   adminsCollectionRef,
   nutzerCollectionRef,
+  nutzerEntfernen,
   rolleSetzen,
   type Nutzer,
   type NutzerMitId,
@@ -22,6 +23,7 @@ function BenutzerInhalt() {
   const { beobachte, zeigeFehler, zeigeInfo } = useMeldung();
   const [nutzer, setNutzer] = useState<NutzerMitId[]>([]);
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
+  const [entfernenId, setEntfernenId] = useState<string | null>(null);
 
   useEffect(() => {
     const ohneNutzer = onSnapshot(
@@ -66,6 +68,15 @@ function BenutzerInhalt() {
     zeigeInfo(
       `${anzeigeName(eintrag.email)} ist jetzt ${ROLLEN.find((r) => r.wert === rolle)?.label}`,
     );
+  }
+
+  function entfernen(eintrag: NutzerMitId) {
+    beobachte(
+      nutzerEntfernen(eintrag.id),
+      `${anzeigeName(eintrag.email)} konnte nicht entfernt werden.`,
+    );
+    zeigeInfo(`${anzeigeName(eintrag.email)} entfernt`);
+    setEntfernenId(null);
   }
 
   return (
@@ -142,6 +153,40 @@ function BenutzerInhalt() {
                     </button>
                   ))}
                 </div>
+                {!ichSelbst &&
+                  (entfernenId === eintrag.id ? (
+                    <div className="space-y-2 rounded-md bg-stone-100 p-3">
+                      <p className="text-xs text-stone-600">
+                        Aus der Liste entfernen? Den Login selbst bitte in der
+                        Firebase Console unter Authentication löschen - sonst
+                        taucht der Account beim nächsten Login wieder auf.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEntfernenId(null)}
+                          className="min-h-12 flex-1 rounded-md border border-stone-300 bg-white text-sm text-stone-700"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => entfernen(eintrag)}
+                          className="min-h-12 flex-1 rounded-md bg-red-700 text-sm text-white"
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEntfernenId(eintrag.id)}
+                      className="min-h-10 text-xs text-red-700 underline-offset-2 hover:underline"
+                    >
+                      Entfernen…
+                    </button>
+                  ))}
               </li>
             );
           })}

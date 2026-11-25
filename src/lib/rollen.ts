@@ -66,6 +66,18 @@ export async function nutzerRegistrieren(uid: string, email: string | null) {
   );
 }
 
+// Entfernt einen Account aus der Benutzer-Liste (und ggf. die
+// Admin-Rechte). Den Login selbst löscht man in der Firebase Console unter
+// Authentication - die App kann Firebase-Auth-Accounts nicht löschen.
+// Meldet sich ein noch existierender Account erneut an, taucht er wieder
+// (als Kasse) auf.
+export async function nutzerEntfernen(uid: string) {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "nutzer", uid));
+  batch.delete(doc(db, "admins", uid));
+  await batch.commit();
+}
+
 export async function rolleSetzen(
   uid: string,
   email: string | null,
