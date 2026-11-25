@@ -35,7 +35,7 @@ const SPALTEN_TOLERANZ = 4;
 // Jedes Textstück einzeln behalten: in Tabellen ist ein Stück praktisch
 // immer eine Zelle. Erst nach der Spaltenerkennung wird zusammengefügt -
 // ein Zusammenfügen nach Abstand würde Zellen verkleben, wenn eine Spalte
-// sehr knapp an der nächsten endet ("Dorte Lindum" + "Rotkäppchenstr.").
+// sehr knapp an der nächsten endet ("Anna Maria" + "Hauptstr. 1").
 function zuReihen(seiten: PositionierterText[][]): Reihe[] {
   const reihen: Reihe[] = [];
   seiten.forEach((items, seite) => {
@@ -188,7 +188,7 @@ function ausSpalten(reihen: Reihe[], spalten: number[]): ImportZeile[] | null {
       vornameZuerst = true;
     }
 
-    // Umbruch innerhalb einer Zelle ("Hanns-" / "Eberhardt"): Reihe ohne
+    // Umbruch innerhalb einer Zelle ("Karl-" / "Heinz"): Reihe ohne
     // erste Spalte direkt unter einer Namensreihe hängt an diese an.
     const vorher = namensReihen[namensReihen.length - 1];
     if (
