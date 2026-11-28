@@ -35,7 +35,8 @@ const SEITEN = [
   "/text-import",
   "/anfragen",
   "/ansprechpartner",
-  "/benutzer",
+  "/zugaenge",
+  "/veranstalter",
 ];
 const WEITERE_DATEIEN = [
   "/manifest.webmanifest",

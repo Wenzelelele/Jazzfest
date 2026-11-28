@@ -1,16 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { getDocs } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
-import { rollenLabel } from "@/lib/rollen";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import {
   aktualisiereEvent,
-  alteGaesteCollectionRef,
-  alteGaesteInEventVerschieben,
   erstelleEvent,
   formatiereDatum,
   heuteIso,
@@ -20,7 +17,6 @@ import {
 } from "@/lib/events";
 import { ladeCsvHerunter } from "@/lib/export";
 import { gaesteCollectionRef, type Gast, type GastMitId } from "@/lib/gaeste";
-import { anzeigeName } from "@/lib/benutzername";
 
 const eingabe =
   "min-h-12 w-full rounded-md border border-stone-300 bg-stone-50 px-3 text-stone-900 outline-none focus:border-stone-500";
@@ -37,14 +33,15 @@ async function exportiereEvent(event: JazzEventMitId) {
 
 function NeuesEvent() {
   const { waehleEvent } = useEvents();
+  const { veranstalterId } = useAuth();
   const { zeigeFehler, zeigeInfo } = useMeldung();
   const [name, setName] = useState("");
   const [datum, setDatum] = useState(heuteIso());
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !datum) return;
-    const { id, gespeichert } = erstelleEvent(name, datum);
+    if (!name.trim() || !datum || !veranstalterId) return;
+    const { id, gespeichert } = erstelleEvent(veranstalterId, name, datum);
     waehleEvent(id);
     gespeichert.catch((fehler) =>
       zeigeFehler("Event konnte nicht angelegt werden.", fehler),
@@ -308,106 +305,6 @@ function EventKarte({
   );
 }
 
-// Für Nicht-Admins: eigene UID anzeigen, damit der Account in der Firebase
-// Console zum Admin gemacht werden kann (Collection "admins", Dokument-ID =
-// UID).
-function AdminHinweis() {
-  const { user, rolle } = useAuth();
-  const { zeigeInfo } = useMeldung();
-  if (!user) return null;
-  return (
-    <details className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
-      <summary className="cursor-pointer text-stone-700">
-        Angemeldet als {anzeigeName(user.email)} · {rollenLabel(rolle)}
-      </summary>
-      <div className="mt-3 space-y-2">
-        <p>
-          Rollen vergibt ein Admin in der App unter „Benutzer & Rollen“. Gibt es
-          noch gar keinen Admin, in der Firebase Console unter Firestore →
-          Collection <span className="font-mono">admins</span> ein Dokument mit
-          dieser ID anlegen:
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            navigator.clipboard
-              ?.writeText(user.uid)
-              .then(() => zeigeInfo("UID kopiert"))
-              .catch(() => {});
-          }}
-          className="block w-full rounded-md border border-stone-300 bg-stone-50 p-2 text-left font-mono text-xs break-all text-stone-900"
-        >
-          {user.uid}
-        </button>
-      </div>
-    </details>
-  );
-}
-
-// Einmalige Migration: Daten aus der Zeit vor den Events (Top-Level-
-// Collection "gaeste") in ein Event verschieben.
-function AlteDatenUebernehmen({ events }: { events: JazzEventMitId[] }) {
-  const { zeigeFehler, zeigeInfo } = useMeldung();
-  const [anzahlAlt, setAnzahlAlt] = useState(0);
-  const [zielId, setZielId] = useState("");
-  const [laeuft, setLaeuft] = useState(false);
-  const [neuLaden, setNeuLaden] = useState(0);
-
-  useEffect(() => {
-    let abgebrochen = false;
-    getDocs(alteGaesteCollectionRef())
-      .then((snapshot) => {
-        if (!abgebrochen) setAnzahlAlt(snapshot.size);
-      })
-      .catch(() => {});
-    return () => {
-      abgebrochen = true;
-    };
-  }, [neuLaden]);
-
-  if (anzahlAlt === 0 || events.length === 0) return null;
-  const ziel = zielId || events[0].id;
-
-  return (
-    <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4">
-      <p className="text-sm text-amber-900">
-        Es gibt noch <strong>{anzahlAlt} Einträge</strong> aus der alten Liste
-        (vor der Einführung von Events). In welches Event sollen sie?
-      </p>
-      <select
-        value={ziel}
-        onChange={(e) => setZielId(e.target.value)}
-        className={eingabe}
-      >
-        {events.map((event) => (
-          <option key={event.id} value={event.id}>
-            {event.name} ({formatiereDatum(event.datum)})
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        disabled={laeuft}
-        onClick={async () => {
-          setLaeuft(true);
-          try {
-            const anzahl = await alteGaesteInEventVerschieben(ziel);
-            zeigeInfo(`${anzahl} Einträge übernommen.`);
-            setNeuLaden((n) => n + 1);
-          } catch (fehler) {
-            zeigeFehler("Übernahme fehlgeschlagen.", fehler);
-          } finally {
-            setLaeuft(false);
-          }
-        }}
-        className="min-h-12 w-full rounded-md bg-stone-900 font-medium text-stone-50 disabled:opacity-60"
-      >
-        {laeuft ? "Wird übernommen…" : "Alte Einträge übernehmen"}
-      </button>
-    </div>
-  );
-}
-
 export default function EventsSeite() {
   const { events, aktivesEvent, geladen } = useEvents();
   const { istAdmin } = useAuth();
@@ -432,8 +329,6 @@ export default function EventsSeite() {
           pro Gerät. Wichtig: Jedes Einlass-Gerät sollte das Event vorher einmal
           online geöffnet haben, damit es offline verfügbar ist.
         </p>
-
-        {istAdmin ? <AlteDatenUebernehmen events={events} /> : <AdminHinweis />}
 
         {geladen && events.length === 0 && (
           <p className="text-sm text-stone-600">Noch keine Events.</p>

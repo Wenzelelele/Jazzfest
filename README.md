@@ -84,46 +84,56 @@ Vercel baut und deployed automatisch bei jedem Push auf den verbundenen
 Branch. Die Firestore-Regeln sind davon unabhängig - Schritt 3 oben muss
 separat gemacht werden (einmalig, bzw. erneut bei Änderungen an den Regeln).
 
-## Benutzer und Rollen
+## Veranstalter, Rollen und Zugänge
+
+Die App trennt mehrere **Veranstalter** voneinander: Jeder hat eigene
+Events, Gästelisten, Admins und Kassen-Geräte und sieht nichts von den
+anderen. Die Firestore-Regeln setzen das hart durch.
 
 | Wer | Darf |
 |---|---|
-| **Ohne Login** (Link zur App bzw. `/gaesteliste`) | Event wählen, Gäste anfragen (Ansprechpartner + Namen, auch als eingefügte WhatsApp-Nachricht), Status der eigenen Anfragen sehen |
-| **Kasse** (Standard für neue Accounts) | Listen sehen, suchen, einchecken, Abendkasse zählen, Event wählen |
-| **Admin** (Freigabe) | Alles - inkl. Anfragen freigeben/ablehnen (einzeln, pro Ansprechpartner oder alle), Gäste direkt anlegen, Gäste nach Ansprechpartner, Events, Import, Export, Statistik, Benutzer & Rollen |
+| **Ohne Login** (Link `/gaesteliste/{kurzname}` des Veranstalters) | Event wählen, Gäste anfragen (Ansprechpartner + Namen, auch als eingefügte WhatsApp-Nachricht), Status der eigenen Anfragen sehen |
+| **Kasse** (Gerät mit Kassen-Code) | Listen sehen, suchen, einchecken, Abendkasse zählen, Event wählen |
+| **Admin** eines Veranstalters | Alles in diesem Veranstalter - Anfragen freigeben, Gäste, Events, Import, Export, Statistik, Kassen-Codes, weitere Admins einladen, Veranstalter löschen |
+| **Super-Admin** (`admins/{uid}` in der Firebase Console) | Veranstalter anlegen, in jeden Veranstalter wechseln, überall alles |
 
-Wer die App ohne Login öffnet, landet auf der öffentlichen Anfrage-Seite -
-es reicht also, Bands & Co. einfach den Link zu schicken. Das Team meldet
-sich dort unten über „Team-Login“ an. Jede Anfrage braucht einen
-**Ansprechpartner** (über wen kommen die Gäste?). Angefragte Gäste stehen
-erst nach der Freigabe auf der Einlassliste - vorher sieht die Kasse sie
-nicht, und sie zählen weder in Zählern, Statistik noch Export. Ohne Login
-ist die Gästeliste nicht lesbar; das Gerät sieht nur den Status der
-Anfragen, die es selbst gesendet hat (per Dokument-ID).
+**Einrichtung (einmalig, Firebase Console → Authentication):**
+- Anmeldemethoden: **E-Mail/Passwort** und **Anonym** aktivieren
+  (anonym = Kassen-Geräte mit Code).
+- Einstellungen → Nutzeraktionen: **Registrierung erlauben** (sonst können
+  eingeladene Admins kein Konto anlegen).
 
-Menü → **Gäste nach Ansprechpartner** zeigt pro Ansprechpartner, wer über
-ihn auf der Liste steht, wie viele Personen das sind und wie viele davon
-schon da sind. Auf der Anfragen-Seite steht bei jeder Gruppe, wie viele
-Personen über diesen Ansprechpartner schon freigegeben sind.
+**Ablauf:**
+1. Super-Admin: Menü → **Veranstalter** → neuen Veranstalter mit Kurzname
+   anlegen (der Kurzname steht im Anfrage-Link) → **Admin einladen** →
+   Link an den Admin schicken.
+2. Admin öffnet den Link, legt Benutzername + Passwort fest.
+3. Admin: Menü → **Kassen & Zugänge** → **Kassen-Code** anlegen. Am
+   Einlass-Gerät: App öffnen → „Kassen-Code“ → Code eingeben. Das Gerät
+   bleibt angemeldet (auch offline). Geräte lassen sich dort einzeln
+   entfernen; einen Code löschen meldet alle seine Geräte ab.
+4. Den **Anfrage-Link** (ebenfalls unter Kassen & Zugänge) an Bands & Co.
+   schicken.
+5. **Löschen**: Kassen & Zugänge → „Veranstalter löschen“ entfernt alle
+   Events, Gäste, Codes und Zugänge. Die Login-Konten der Admins bleiben in
+   Firebase Auth bestehen, haben aber keinen Zugriff mehr (bei Bedarf in der
+   Console löschen).
 
-- **Benutzer anlegen**: Firebase Console → Authentication → Nutzer →
-  „Nutzer hinzufügen“. Der Account erscheint nach dem ersten Login in der
-  App unter Menü → **Benutzer & Rollen** (als Kasse) und bekommt dort seine
-  Rolle.
-- **Ohne persönliche E-Mail** (empfohlen für Geräte-/Funktions-Accounts):
-  als E-Mail `name@jazzfest.invalid` eintragen, z. B.
-  `kasse@jazzfest.invalid`. In der App meldet man sich dann nur mit dem
-  Benutzernamen `kasse` an, angezeigt wird ebenfalls nur `kasse`. Die Endung
-  `.invalid` ist reserviert und kann nie eine echte Adresse sein (siehe
-  `src/lib/benutzername.ts`). Accounts mit echter E-Mail funktionieren
-  weiterhin - dann im Login die volle Adresse eintippen.
-- **Erster Admin**: Firebase Console → Firestore → Collection `admins` (auf
-  oberster Ebene, neben `events`) → Dokument anlegen, **Dokument-ID = UID**
-  des Accounts (die App zeigt sie auf der Seite „Event wählen“). Weitere
-  Admins vergibt man danach in der App.
-- Die Firestore-Regeln sperren Events anlegen/ändern/löschen, Mitglieder-
-  Import und Rollenvergabe für Nicht-Admins. Alles andere ist reine
-  Oberfläche.
+Benutzernamen ohne E-Mail: Die App hängt intern `@jazzfest.invalid` an
+(siehe `src/lib/benutzername.ts`); angezeigt wird nur der Name. Accounts
+mit echter E-Mail funktionieren ebenfalls.
+
+Alte Events ohne Veranstalter (aus der Zeit davor) zeigt die
+Veranstalter-Seite des Super-Admins zum Zuordnen an. Alte Accounts ohne
+Zugang sehen „Kein Zugang“ und können dort einen Kassen-Code oder eine
+Einladung einlösen.
+
+Anfragen: Jede Anfrage braucht einen **Ansprechpartner** (über wen kommen
+die Gäste?). Angefragte Gäste stehen erst nach der Freigabe auf der
+Einlassliste. Ohne Login ist die Gästeliste nicht lesbar; das Gerät sieht
+nur den Status der Anfragen, die es selbst gesendet hat (per Dokument-ID).
+Menü → **Gäste nach Ansprechpartner** zeigt, wie viele Personen über wen
+kommen.
 
 ## Events und Ablauf am Veranstaltungstag
 
@@ -164,15 +174,17 @@ Event-Verwaltung einmalig zur Übernahme in ein Event an.
 - `src/app/(protected)/` - Hauptansicht, Formular, Import (nur eingeloggt
   erreichbar)
 - `src/app/login/` - Login-Seite
-- `src/app/gaesteliste/` - öffentliche Anfrage-Seite (ohne Login)
+- `src/app/gaesteliste/[veranstalter]/` + `src/components/AnfrageSeite.tsx` -
+  öffentliche Anfrage-Seite (ohne Login)
 - `src/app/(protected)/ansprechpartner/` - Gäste gruppiert nach Ansprechpartner
 - `src/app/(protected)/events/`, `.../statistik/` - Event-Verwaltung, Statistik
 - `src/lib/events.ts` - Events, Abendkasse, Mitglieder-Übernahme, Migration
 - `src/lib/gaeste.ts` - Datenmodell und Firestore-Lese-/Schreibfunktionen
 - `src/lib/suche.ts` / `src/lib/export.ts` - Such-Normalisierung, CSV-Export
 - `src/contexts/` - Auth + Rolle, aktives Event (pro Gerät), Meldungsleiste
-- `src/lib/rollen.ts`, `src/app/(protected)/benutzer/`, `.../anfragen/` -
-  Rollen, Benutzerverwaltung, Anfragen & Freigabe
+- `src/lib/veranstalter.ts`, `.../veranstalter/`, `.../zugaenge/`,
+  `src/components/Beitreten.tsx` - Veranstalter, Zugänge, Kassen-Codes,
+  Einladungen; `.../anfragen/` - Anfragen & Freigabe
 - `src/lib/pdfImport.ts` + `src/lib/pdfNamen.ts` / `src/lib/csvImport.ts` / `src/lib/gaesteImport.ts` -
   Mitgliederlisten-Import (Parsing getrennt nach Format, Vorschau/Dubletten/
   Batch-Write gemeinsam)

@@ -27,6 +27,9 @@ export interface JazzEvent {
   // Offline-Geräte beim Sync korrekt, statt den Wert zu überschreiben.
   abendkasse?: number;
   erstelltAm: Timestamp | null;
+  // Fehlt nur bei Events aus der Zeit vor den Veranstaltern - ein
+  // Super-Admin ordnet sie auf der Seite "Veranstalter" zu.
+  veranstalterId?: string;
 }
 
 export interface JazzEventMitId extends JazzEvent {
@@ -77,11 +80,13 @@ export function standardEvent(
 // Event auch offline direkt ausgewählt werden (das Schreib-Promise löst
 // erst nach dem Sync auf).
 export function erstelleEvent(
+  veranstalterId: string,
   name: string,
   datum: string,
 ): { id: string; gespeichert: Promise<void> } {
   const ref = doc(eventsCollectionRef());
   const gespeichert = setDoc(ref, {
+    veranstalterId,
     name: name.trim(),
     datum,
     abendkasse: 0,
@@ -147,30 +152,4 @@ export async function mitgliederUebernehmen(
     await batch.commit();
   }
   return mitglieder.length;
-}
-
-// --- Migration der alten, event-losen Collection "gaeste" ---------------
-
-export function alteGaesteCollectionRef() {
-  return collection(db, "gaeste");
-}
-
-// Verschiebt die Einträge der alten Top-Level-Collection "gaeste" in ein
-// Event (Kopie + Löschen der alten Dokumente, je Batch atomar).
-export async function alteGaesteInEventVerschieben(
-  eventId: string,
-): Promise<number> {
-  const snapshot = await getDocs(alteGaesteCollectionRef());
-  const docs = snapshot.docs;
-  // Je Dokument 2 Schreibvorgänge (set + delete) -> halbe Batch-Größe.
-  const stapelGroesse = Math.floor(BATCH_GROESSE / 2);
-  for (let start = 0; start < docs.length; start += stapelGroesse) {
-    const batch = writeBatch(db);
-    for (const alt of docs.slice(start, start + stapelGroesse)) {
-      batch.set(doc(gaesteCollectionRef(eventId), alt.id), alt.data());
-      batch.delete(alt.ref);
-    }
-    await batch.commit();
-  }
-  return docs.length;
 }

@@ -1,53 +1,132 @@
 rules_version = '2';
 
-// Rollen:
-// - Ohne Login (öffentlicher Link /gaesteliste): Events lesen und Gäste
-//   ANFRAGEN (status "angefragt", nur genau die erwarteten Felder). Die
-//   Gästeliste selbst ist ohne Login nicht lesbar - nur einzelne Einträge
-//   per (zufälliger, nicht erratbarer) ID, damit ein Gerät den Status der
-//   eigenen Anfragen sieht.
-// - Jeder angemeldete Account (manuell in der Firebase Console angelegt, es
-//   gibt keine Registrierung) darf Events lesen, Gäste anlegen, bearbeiten,
-//   löschen, einchecken und die Abendkasse zählen.
-// - Admins (Dokument admins/{uid} existiert) dürfen zusätzlich Events
-//   verwalten und Mitglieder (quelle "mitglied") importieren/übernehmen.
+// Mandanten: Jeder Veranstalter (veranstalter/{id}) hat eigene Events,
+// Admins und Kassen-Geräte. Wer zu welchem Veranstalter gehört, steht in
+// zugaenge/{uid} (rolle "admin" oder "kasse"). Die Regeln trennen die
+// Veranstalter hart: niemand liest oder ändert Gästelisten eines anderen.
 //
-// Den ersten Admin legt man in der Firebase Console an: Collection
-// "admins", Dokument-ID = UID des Accounts (die App zeigt die eigene UID auf
-// der Event-Seite an). Weitere Rollen vergibt ein Admin in der App. Bewusst
-// keine E-Mail-Adresse hier im Code - das Repository ist öffentlich.
-// Was Kasse in der App sieht (nur Einlassliste), regelt die Oberfläche.
+// - Super-Admins (admins/{uid}, nur in der Firebase Console angelegt)
+//   dürfen überall alles und legen Veranstalter an.
+// - Admins eines Veranstalters: Events, Gäste, Import, Codes, Einladungen,
+//   Zugänge, Veranstalter löschen.
+// - Kasse: Gästeliste lesen, Gäste anlegen (keine Mitglieder), einchecken,
+//   Abendkasse zählen.
+// - Ohne Login (öffentlicher Link /gaesteliste/{id}): Veranstalter und
+//   Events lesen, Gäste ANFRAGEN (nur genau die erwarteten Felder) und
+//   eigene Anfragen per (nicht erratbarer) Dokument-ID lesen.
+//
+// Beitreten: Ein Gerät wird Kasse, indem es mit einem gültigen Kassen-Code
+// seinen eigenen Zugang anlegt; Admin wird man durch Einlösen einer
+// Einmal-Einladung. Bewusst keine E-Mail-Adressen hier - das Repository
+// ist öffentlich.
 service cloud.firestore {
   match /databases/{database}/documents {
     function angemeldet() {
       return request.auth != null;
     }
 
-    function istAdmin() {
+    function istSuperAdmin() {
       return angemeldet() &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Jeder darf prüfen, ob er selbst Admin ist; Admins sehen alle und
-    // vergeben die Rolle über die Benutzer-Seite der App. Den allerersten
-    // Admin legt man in der Console an.
-    match /admins/{uid} {
-      allow read: if angemeldet() && (request.auth.uid == uid || istAdmin());
-      allow write: if istAdmin();
+    function hatZugang() {
+      return angemeldet() &&
+        exists(/databases/$(database)/documents/zugaenge/$(request.auth.uid));
     }
 
-    // Selbstregistrierung (E-Mail, zuletzt aktiv) für die Benutzer-Seite.
-    // Das Feld rolle setzt nur ein Admin.
-    match /nutzer/{uid} {
-      allow read: if angemeldet();
-      allow create: if angemeldet() && request.auth.uid == uid &&
-        !('rolle' in request.resource.data);
-      allow update: if istAdmin() || (
-        angemeldet() && request.auth.uid == uid &&
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['rolle'])
+    function zugang() {
+      return get(/databases/$(database)/documents/zugaenge/$(request.auth.uid)).data;
+    }
+
+    function gehoertZu(vid) {
+      return istSuperAdmin() || (hatZugang() && zugang().veranstalterId == vid);
+    }
+
+    function istAdminVon(vid) {
+      return istSuperAdmin() || (
+        hatZugang() && zugang().veranstalterId == vid && zugang().rolle == 'admin'
       );
-      allow delete: if istAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if angemeldet() && (request.auth.uid == uid || istSuperAdmin());
+      allow write: if istSuperAdmin();
+    }
+
+    match /veranstalter/{vid} {
+      allow read: if true;
+      allow create: if istSuperAdmin();
+      allow update: if istSuperAdmin() || (
+        istAdminVon(vid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+      );
+      allow delete: if istAdminVon(vid);
+    }
+
+    // Kasse per Code: eigener Zugang, Veranstalter muss zum Code passen.
+    function kassenBeitritt() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['veranstalterId', 'rolle', 'name', 'code', 'erstelltAm']) &&
+        d.keys().hasAll(['veranstalterId', 'rolle', 'name', 'code']) &&
+        d.rolle == 'kasse' &&
+        d.code is string && d.name is string && d.name.size() <= 60 &&
+        exists(/databases/$(database)/documents/kassencodes/$(d.code)) &&
+        get(/databases/$(database)/documents/kassencodes/$(d.code)).data.veranstalterId == d.veranstalterId;
+    }
+
+    // Admin per Einladung: im selben Batch wird die Einladung als benutzt
+    // markiert (getAfter), eine Einladung gilt so nur einmal.
+    function adminBeitritt() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['veranstalterId', 'rolle', 'name', 'einladung', 'erstelltAm']) &&
+        d.keys().hasAll(['veranstalterId', 'rolle', 'name', 'einladung']) &&
+        d.rolle == 'admin' &&
+        d.einladung is string && d.name is string && d.name.size() <= 60 &&
+        exists(/databases/$(database)/documents/einladungen/$(d.einladung)) &&
+        get(/databases/$(database)/documents/einladungen/$(d.einladung)).data.veranstalterId == d.veranstalterId &&
+        get(/databases/$(database)/documents/einladungen/$(d.einladung)).data.benutztVon == null &&
+        getAfter(/databases/$(database)/documents/einladungen/$(d.einladung)).data.benutztVon == request.auth.uid;
+    }
+
+    match /zugaenge/{uid} {
+      allow get: if angemeldet() && (
+        request.auth.uid == uid || istAdminVon(resource.data.veranstalterId)
+      );
+      allow list: if istAdminVon(resource.data.veranstalterId);
+      allow create: if angemeldet() && request.auth.uid == uid &&
+        (kassenBeitritt() || adminBeitritt());
+      // Admins dürfen Namen/Rolle ändern, aber niemanden in einen anderen
+      // Veranstalter verschieben.
+      allow update: if istAdminVon(resource.data.veranstalterId) &&
+        request.resource.data.veranstalterId == resource.data.veranstalterId;
+      allow delete: if angemeldet() && (
+        request.auth.uid == uid || istAdminVon(resource.data.veranstalterId)
+      );
+    }
+
+    // Der Code ist das Geheimnis: Einzelabruf für jeden Angemeldeten (auch
+    // anonym), Auflisten nur für Admins des Veranstalters.
+    match /kassencodes/{code} {
+      allow get: if angemeldet();
+      allow list: if istAdminVon(resource.data.veranstalterId);
+      allow create: if istAdminVon(request.resource.data.veranstalterId);
+      allow update, delete: if istAdminVon(resource.data.veranstalterId);
+    }
+
+    match /einladungen/{code} {
+      allow get: if angemeldet();
+      allow list: if istAdminVon(resource.data.veranstalterId);
+      allow create: if istAdminVon(request.resource.data.veranstalterId) &&
+        request.resource.data.benutztVon == null;
+      allow delete: if istAdminVon(resource.data.veranstalterId);
+      // Einlösen: nur benutztVon/benutztAm, nur für sich selbst, nur
+      // zusammen mit dem eigenen neuen Zugang.
+      allow update: if angemeldet() &&
+        resource.data.benutztVon == null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['benutztVon', 'benutztAm']) &&
+        request.resource.data.benutztVon == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/zugaenge/$(request.auth.uid));
     }
 
     // Anfrage über den öffentlichen Link: genau die Felder, die
@@ -76,36 +155,44 @@ service cloud.firestore {
     match /events/{eventId} {
       // Öffentlich: Die Anfrage-Seite zeigt die Events zur Auswahl.
       allow read: if true;
-      allow create, delete: if istAdmin();
-      // Nicht-Admins dürfen am Event-Dokument nur den Abendkassen-Zähler
-      // ändern.
-      allow update: if istAdmin() || (
-        angemeldet() &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['abendkasse'])
+      allow create: if istAdminVon(request.resource.data.veranstalterId);
+      allow delete: if istAdminVon(resource.data.veranstalterId);
+      // Super-Admin darf alte Events ohne veranstalterId zuordnen. Sonst:
+      // Admin alles außer den Veranstalter wechseln, Kasse nur Abendkasse.
+      allow update: if istSuperAdmin() || (
+        istAdminVon(resource.data.veranstalterId) &&
+        request.resource.data.veranstalterId == resource.data.veranstalterId
+      ) || (
+        gehoertZu(resource.data.veranstalterId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['abendkasse'])
       );
 
       match /gaeste/{gastId} {
+        function vid() {
+          return get(/databases/$(database)/documents/events/$(eventId)).data.veranstalterId;
+        }
+
         allow get: if true;
-        allow list: if angemeldet();
+        allow list: if gehoertZu(vid());
         // Mitglieder-Einträge anlegen (Import/Übernahme) nur als Admin.
-        allow create: if istAdmin() || (
-          angemeldet() && request.resource.data.quelle != 'mitglied'
+        allow create: if istAdminVon(vid()) || (
+          gehoertZu(vid()) && request.resource.data.quelle != 'mitglied'
         ) || oeffentlicheAnfrage(eventId);
-        // Bearbeiten/Einchecken: alle, aber niemand ohne Admin-Rechte darf
+        // Einchecken: alle des Veranstalters, aber ohne Admin-Rechte niemand
         // einen Gast zum Mitglied machen (oder umgekehrt).
-        allow update: if istAdmin() || (
-          angemeldet() && request.resource.data.quelle == resource.data.quelle
+        allow update: if istAdminVon(vid()) || (
+          gehoertZu(vid()) && request.resource.data.quelle == resource.data.quelle
         );
-        allow delete: if angemeldet();
+        allow delete: if istAdminVon(vid());
       }
     }
 
-    // Alte, event-lose Collection aus der Zeit vor Events: nur noch lesen
-    // und (für die Migration) vom Admin verschieben/löschen.
+    // Altlasten aus früheren Versionen: nur noch Super-Admins.
     match /gaeste/{gastId} {
-      allow read: if angemeldet();
-      allow write: if istAdmin();
+      allow read, write: if istSuperAdmin();
+    }
+    match /nutzer/{uid} {
+      allow read, delete: if istSuperAdmin();
     }
   }
 }

@@ -10,9 +10,10 @@ import {
   type ReactNode,
 } from "react";
 import { onSnapshot } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMeldung } from "@/contexts/MeldungContext";
+import { eventsVon } from "@/lib/veranstalter";
 import {
-  eventsCollectionRef,
   standardEvent,
   type JazzEvent,
   type JazzEventMitId,
@@ -39,8 +40,11 @@ function leseGespeichertesEvent(): string | null {
   }
 }
 
+// Zeigt nur die Events des aktiven Veranstalters. Der Provider wird im
+// Layout pro Veranstalter neu aufgebaut (key), daher kein Zurücksetzen hier.
 export function EventProvider({ children }: { children: ReactNode }) {
   const { zeigeFehler } = useMeldung();
+  const { veranstalterId } = useAuth();
   const [events, setEvents] = useState<JazzEventMitId[]>([]);
   const [geladen, setGeladen] = useState(false);
   // Lazy-Init ist hier hydrationssicher: aktivesEvent hängt zusätzlich an
@@ -51,8 +55,9 @@ export function EventProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    if (!veranstalterId) return;
     const unsubscribe = onSnapshot(
-      eventsCollectionRef(),
+      eventsVon(veranstalterId),
       (snapshot) => {
         const liste = snapshot.docs.map((docSnapshot) => ({
           id: docSnapshot.id,
@@ -68,7 +73,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       },
     );
     return unsubscribe;
-  }, [zeigeFehler]);
+  }, [zeigeFehler, veranstalterId]);
 
   const waehleEvent = useCallback((eventId: string) => {
     setGewaehlteId(eventId);

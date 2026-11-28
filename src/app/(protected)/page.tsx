@@ -17,7 +17,7 @@ import {
   istVollstaendigDa,
   summiere,
 } from "@/lib/gaeste";
-import { rollenLabel } from "@/lib/rollen";
+import { ROLLEN_LABEL } from "@/lib/veranstalter";
 import { suchBegriffe } from "@/lib/suche";
 import { GastZeile } from "@/components/GastZeile";
 import { GastFormular } from "@/components/GastFormular";
@@ -38,7 +38,8 @@ type FormularStatus =
   { offen: false } | { offen: true; gast?: GastMitId; vorgabeName?: string };
 
 function Menue({ onExport }: { onExport: () => void }) {
-  const { istAdmin, rolle, user } = useAuth();
+  const { istAdmin, istSuperAdmin, rolle, user, zugang, veranstalter, veranstalterId } =
+    useAuth();
   const [offen, setOffen] = useState(false);
   const eintrag =
     "flex min-h-12 w-full items-center px-4 text-left text-sm text-stone-700 hover:bg-stone-100";
@@ -73,14 +74,14 @@ function Menue({ onExport }: { onExport: () => void }) {
                 <Link href="/ansprechpartner" className={eintrag}>
                   Gäste nach Ansprechpartner
                 </Link>
-                <Link href="/gaesteliste" className={eintrag}>
+                <Link href={`/gaesteliste/${veranstalterId}`} className={eintrag}>
                   Anfrage-Link (öffentlich)
                 </Link>
                 <Link href="/text-import" className={eintrag}>
                   Gäste aus Text einfügen
                 </Link>
-                <Link href="/benutzer" className={eintrag}>
-                  Benutzer & Rollen
+                <Link href="/zugaenge" className={eintrag}>
+                  Kassen & Zugänge
                 </Link>
                 <Link href="/statistik" className={eintrag}>
                   Statistik
@@ -100,8 +101,17 @@ function Menue({ onExport }: { onExport: () => void }) {
                 </button>
               </>
             )}
+            {istSuperAdmin && (
+              <Link href="/veranstalter" className={eintrag}>
+                Veranstalter wechseln / verwalten
+              </Link>
+            )}
             <p className="truncate border-t border-stone-200 px-4 pt-2 text-xs text-stone-400">
-              {anzeigeName(user?.email)} · {rollenLabel(rolle)}
+              {veranstalter?.name ?? veranstalterId}
+            </p>
+            <p className="truncate px-4 pt-1 text-xs text-stone-400">
+              {user?.isAnonymous ? zugang?.name : anzeigeName(user?.email)} ·{" "}
+              {istSuperAdmin ? "Super-Admin" : rolle ? ROLLEN_LABEL[rolle] : ""}
             </p>
             <button
               type="button"

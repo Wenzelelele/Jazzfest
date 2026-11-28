@@ -76,10 +76,20 @@ export function nameLowerVon(name: string): string {
   return name.trim().toLowerCase();
 }
 
-// Wer eingecheckt hat - der Login-Account des Geräts (E-Mail). Offline
-// verfügbar, weil der Auth-Zustand lokal persistiert ist.
+// Name des Kassen-Geräts (aus zugaenge/{uid}), gesetzt vom AuthContext -
+// Geräte mit Kassen-Code haben keine E-Mail.
+let geraeteName: string | null = null;
+export function setzeGeraeteName(name: string | null) {
+  geraeteName = name;
+}
+
+// Wer eingecheckt hat - E-Mail/Benutzername des Accounts bzw. der Name des
+// Kassen-Geräts. Offline verfügbar, weil der Auth-Zustand lokal persistiert
+// ist.
 export function aktuellerNutzer(): string | null {
-  return auth.currentUser?.email ?? auth.currentUser?.uid ?? null;
+  return (
+    auth.currentUser?.email ?? geraeteName ?? auth.currentUser?.uid ?? null
+  );
 }
 
 export function baueBegleitung(namen: string[]): Begleitung {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEvents } from "@/contexts/EventContext";
 import { useMeldung } from "@/contexts/MeldungContext";
 import { useGaeste } from "@/hooks/useGaeste";
@@ -205,6 +206,7 @@ function AnfrageGruppe({
 
 function AnfrageLink() {
   const { zeigeInfo, zeigeFehler } = useMeldung();
+  const { veranstalterId } = useAuth();
   // Origin erst im Browser bekannt - useSyncExternalStore vermeidet einen
   // Hydration-Unterschied zwischen Server- und Client-Render.
   const origin = useSyncExternalStore(
@@ -212,7 +214,7 @@ function AnfrageLink() {
     () => window.location.origin,
     () => "",
   );
-  const link = `${origin}/gaesteliste`;
+  const link = `${origin}/gaesteliste/${veranstalterId}`;
   return (
     <div className="space-y-2 rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
       <p>
